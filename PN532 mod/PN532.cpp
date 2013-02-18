@@ -5,8 +5,11 @@
 // by Seeed Technology Inc (www.seeedstudio.com)
 
 #include "PN532.h"
+#include <Wire.h> //Wire biblioteket!
 
 #define PN532DEBUG 1
+
+
 
 uint8_t pn532ack[] = {0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00};
 uint8_t pn532response_firmwarevers[] = {0x00, 0xFF, 0x06, 0xFA, 0xD5, 0x03};
@@ -14,12 +17,14 @@ uint8_t pn532response_firmwarevers[] = {0x00, 0xFF, 0x06, 0xFA, 0xD5, 0x03};
 #define COMMAND_RESPONSE_SIZE 3 
 #define TS_GET_DATA_IN_MAX_SIZE  262 + 3
 
+//Buffern som allt läggs på, rymmer ett standard PN532 commando
 uint8_t pn532_packetbuffer[TS_GET_DATA_IN_MAX_SIZE];
 
 //Pinnarna i argumentet skall defineras av oss i huvudfilen!  
 PN532::PN532(uint8_t irq, uint8_t reset) 
 {
-    //argumenten har reducerats. I2C kr�ver mycket mindre pinnar!
+    //argumenten har reducerats. I2C kräver mycket mindre pinnar!
+	//Dessa pinnar skall defineras i vår main
     _irq = irq;
     _reset = reset;
 
@@ -28,9 +33,17 @@ PN532::PN532(uint8_t irq, uint8_t reset)
 }
 
 //Hur kommer vi ur lowVbat med I2C som saknar slave select!
-// Verkar vara s� att denna metod �r helt on�dig ?
+// Verkar vara så att denna metod är helt onödig ?
 void PN532::initializeReader() 
 {
+								//Pinnarna som ställer in vilket interfacelage som skall köras är antagligen konstanta.
+	Wire.begin();				// Hoppar med på I2C bussen som "master"
+	digitalWrite(_reset, HIGH); // skriva till reset verar vara överflödig.... ? 
+	digitalWrite(_reset, LOW);
+	delay(400); 
+	digitalWrite(_reset, HIGH);
+
+	/**
     digitalWrite(_ss, LOW);
 
     delay(1000);
@@ -40,6 +53,7 @@ void PN532::initializeReader()
     sendCommandCheckAck(pn532_packetbuffer, 1);
 
     // ignore response!
+	**/
 }
 
 
@@ -83,12 +97,11 @@ uint32_t PN532::sendCommandCheckAck(uint8_t *cmd,
 {
     uint16_t timer = 0;
     
-    Wire.begin
-    // write the command
+        // write the command
     spiwritecommand(cmd, cmdlen, debug);
     
     // Wait for chip to say its ready!
-    while (readspistatus() != PN532_SPI_READY) //H�r pollas datalinjen efter Statusbit!
+    while (readspistatus() != PN532_SPI_READY) //Här pollas datalinjen efter Statusbit!
     {
         if (timeout != 0) 
         {
@@ -570,28 +583,33 @@ boolean PN532::spi_readack(boolean debug)
 
 /************** mid level SPI */
 
-uint8_t PN532::readspistatus(void) 
-{
-    digitalWrite(_ss, LOW);
-    delay(2);
-    spiwrite(PN532_SPI_STATREAD);
-    // read uint8_t
-    uint8_t x = spiread();
 
-    digitalWrite(_ss, HIGH);
-    return x;
+//Ersätter helt readspistatus, i I2C räcker det med att titta på IRQ linan för att avögra om PN532 är upptagen.
+uint8_t PN532::wirereadstatus(void) {
+  uint8_t x = digitalRead(_irq);
+  
+  if (x == 1)
+    return PN532_I2C_BUSY;
+  else
+    return PN532_I2C_READY;
 }
 
-uint32_t PN532::readspicommand(uint8_t cmdCode, PN532_CMD_RESPONSE *response, boolean debug) 
+
+
+//Denna metoden vet vi inte riktigt vad den gör än, men den skall vara portad till I2C
+uint32_t PN532::readwirecommand(uint8_t cmdCode, PN532_CMD_RESPONSE *response, boolean debug) 
 {
 
     uint8_t calc_checksum = 0;
     uint8_t ret_checksum;
-    
-    digitalWrite(_ss, LOW);
+        
+    //Begär data från PN532    
+    Wire.requestFrom((uint8_t)PN532_I2C_ADDRESS, (unit8_t)(n+2));
+   
     delay(2);
-    spiwrite(PN532_SPI_DATAREAD);
+   
     
+    // Wattafack?
     response->header[0] = response->header[1] = 0xAA;
     
     uint32_t retVal = RESULT_SUCCESS;
@@ -600,21 +618,21 @@ uint32_t PN532::readspicommand(uint8_t cmdCode, PN532_CMD_RESPONSE *response, bo
     {
        response->header[0] = response->header[1];
        delay(1);
-       response->header[1] = spiread();
+       response->header[1] = wirerecv();
     } while (response->header[0] != 0x00 || response->header[1] != 0xFF);
 
     delay(1);
-    response->len = spiread();  
+    response->len = wirerecv();  
     
     delay(1);
-    response->len_chksum = spiread();  
+    response->len_chksum = wirerecv();  
     
     delay(1);
-    response->direction = spiread(); 
+    response->direction = wirerecv(); 
     calc_checksum += response->direction;
     
     delay(1);
-    response->responseCode = spiread(); 
+    response->responseCode = wirerecv(); 
     
     calc_checksum += response->responseCode;
     
@@ -629,12 +647,12 @@ uint32_t PN532::readspicommand(uint8_t cmdCode, PN532_CMD_RESPONSE *response, bo
         for (uint8_t i = 0; i < response->data_len; ++i) 
         {
             delay(1); 
-            response->data[i] = spiread();
+            response->data[i] = wirerecv();
             calc_checksum +=  response->data[i];
          }
          
          delay(1); 
-         ret_checksum = spiread();
+         ret_checksum = wirerecv();
         
          if (((uint8_t)(calc_checksum + ret_checksum)) != 0x00) 
          {
@@ -643,7 +661,7 @@ uint32_t PN532::readspicommand(uint8_t cmdCode, PN532_CMD_RESPONSE *response, bo
          }
         
          delay(1); 
-         uint8_t postamble = spiread();
+         uint8_t postamble = wirerecv();
          
          
          if (RESULT_OK(retVal) && postamble != 0x00) 
@@ -654,7 +672,7 @@ uint32_t PN532::readspicommand(uint8_t cmdCode, PN532_CMD_RESPONSE *response, bo
        
     }
     
-    digitalWrite(_ss, HIGH); 
+   
     if (debug)
     {
       response->printResponse();
@@ -669,21 +687,28 @@ uint32_t PN532::readspicommand(uint8_t cmdCode, PN532_CMD_RESPONSE *response, bo
     return retVal;
 }
 
-void PN532::readspidata(uint8_t* buff, uint32_t n, boolean debug) 
+
+void PN532::wirereaddata(uint8_t* buff, uint32_t n, boolean debug) 
 {
-    digitalWrite(_ss, LOW);
+    //Timer??
+    
     delay(2);
-    spiwrite(PN532_SPI_DATAREAD);
     
     if (debug) 
     {
         Serial.print(F("Reading: "));
     }
     
-    for (uint8_t i=0; i<n; i++) 
-    {
+    Wire.requestFrom((uint8_t)PN532_I2C_ADDRESS, (unit8_t)(n+2)); //Begär data från PN532, +2 för att?
+    
+    wirerecv(); //Discard the leading 0x01
+    for(uint8_t i=0; i<n; i++){
+      delay(1);
+    }
+    
+    for (uint8_t i=0; i<n; i++){
         delay(1);
-        buff[i] = spiread();
+        buff[i] = wirerecv();
         
         if (debug)
         {
@@ -695,9 +720,7 @@ void PN532::readspidata(uint8_t* buff, uint32_t n, boolean debug)
     if (debug)
     {
         Serial.println();
-    }
-
-    digitalWrite(_ss, HIGH);
+    }   
 }
 
 
@@ -707,30 +730,28 @@ void PN532::wiresendcommand(uint8_t* cmd, uint8_t cmdlen, boolean debug)
     uint8_t checksum;
     cmdlen++;
 
+	//Skriver ut på terminalen
     if (debug) 
     {
       Serial.print(F("\nSending: "));
     }
+
     delay(2);     // or whatever the delay is for waking up the board    
-    Wire.beginTransmission(PN532_I2C_ADDRESS)
-    checksum = PN532_PREAMBLE + PN532_PREAMBLE + PN532_STARTCODE2; // Alla dessa ligger i PN532.h
-    //Mycket riktigt �r det x00 x14 som �r startsekvensen f�r PN532
+    Wire.beginTransmission(PN532_I2C_ADDRESS);
+
+	
+    checksum = PN532_PREAMBLE + PN532_PREAMBLE + PN532_STARTCODE2; //Skall dessa verkligen vara med? se p28 UM
     
-       
-    checksum = PN532_PREAMBLE + PN532_PREAMBLE + PN532_STARTCODE2;
+					//Mycket riktigt är det 00x x00 xFF som är startsekvensen för PN532
     wiresend(PN532_PREAMBLE);
     wiresend(PN532_PREAMBLE);
     wiresend(PN532_STARTCODE2);
-       
-// SLUTADE H�R!!
-
-
-    spiwrite(cmdlen);
-    uint8_t cmdlen_1=~cmdlen + 1;
-    spiwrite(cmdlen_1);
-
-    spiwrite(PN532_HOSTTOPN532);
-    checksum += PN532_HOSTTOPN532;
+  
+    wiresend(cmdlen);
+    wiresend(~cmdlen +1);		//tvåkompleterar cmdlen, används som LCS length checksum
+    wiresend(PN532_HOSTTOPN532);	//TFI specificeras som från host till PN532 (0xD4)
+    
+    checksum += PN532_HOSTTOPN532; //Checksumen ökas...
 
     if (debug) 
     {
@@ -742,18 +763,22 @@ void PN532::wiresendcommand(uint8_t* cmd, uint8_t cmdlen, boolean debug)
         Serial.print(F(" 0x")); Serial.print(PN532_HOSTTOPN532, HEX);
     }
 
+
+    //Denna loopen står för skickadet av själva kommandot dvs PD0...PDN
     for (uint8_t i=0; i<cmdlen-1; i++) {
-        spiwrite(cmd[i]);
-        checksum += cmd[i];
+        wiresend(cmd[i]);
+        checksum += cmd[i];  
+        
         if (debug) 
         {
           Serial.print(F(" 0x")); Serial.print(cmd[i], HEX);
         }
     }
-    uint8_t checksum_1=~checksum;
-    spiwrite(checksum_1);
-    spiwrite(PN532_POSTAMBLE);
-    digitalWrite(_ss, HIGH);
+    
+    
+    wiresend(~checksum); //Varför invereras bara detta? Hur vet man att den verklige uppfyller kravet
+    wiresend(PN532_POSTAMBLE); 
+  
 
     if (debug) 
     {
@@ -762,7 +787,24 @@ void PN532::wiresendcommand(uint8_t* cmd, uint8_t cmdlen, boolean debug)
       Serial.println();
     }
 } 
+
+//Använder Wire-biblioteket för att skriva till PN532
+static inline void PN532::wiresend(uint8_t x)
+{
+	//Vi har Arduino version 1.0, dvs Arduino >= 100
+	//Lägger x på I2C kön...
+    Wire.write((uint8_t)x);
+}
+
+//Använder Wire-biblioteket för att läsa till PN532
+static inline uint8_t wirerecv(void)
+{
+     return Wire.read();
+}
 /************** low level SPI */
+
+/**
+
 
 void PN532::spiwrite(uint8_t c) 
 {
@@ -801,6 +843,7 @@ uint8_t PN532::spiread(void)
     }
     return x;
 }
+**/
 
 boolean PN532_CMD_RESPONSE::verifyResponse(uint32_t cmdCode)
 {
@@ -832,3 +875,4 @@ void PN532_CMD_RESPONSE::printResponse()
     
     Serial.println();
 }
+

@@ -40,6 +40,12 @@
 #define  PN532_SPI_DATAREAD 0x03
 #define  PN532_SPI_READY 0x01
 
+#define PN532_I2C_ADDRESS (0x48 >> 1) //Jättekonsigt med en shiftoperation här??
+#define PN532_I2C_READBIT (0x01)
+#define PN532_I2C_BUSY (0x00)
+#define PN532_I2C_READY (0x01)
+#define PN532_I2C_READYTIMEOUT (20)
+
 #define PN532_MIFARE_ISO14443A 0x0
 
 #define KEY_A	1
