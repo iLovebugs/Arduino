@@ -584,7 +584,7 @@ boolean PN532::spi_readack(boolean debug)
 /************** mid level SPI */
 
 
-//Ersätter helt readspistatus, i I2C räcker det med att titta på IRQ linan för att avögra om PN532 är upptagen.
+//Ersätter helt readspistatus, i I2C räcker det med att titta på IRQ linan för att avögra om PN532 är upptagen. What? /jonas
 uint8_t PN532::wirereadstatus(void) {
   uint8_t x = digitalRead(_irq);
   
@@ -596,7 +596,7 @@ uint8_t PN532::wirereadstatus(void) {
 
 
 
-//Denna metoden vet vi inte riktigt vad den gör än, men den skall vara portad till I2C
+//Bryter isär svaret från PN532
 uint32_t PN532::readwirecommand(uint8_t cmdCode, PN532_CMD_RESPONSE *response, boolean debug) 
 {
 
@@ -636,8 +636,10 @@ uint32_t PN532::readwirecommand(uint8_t cmdCode, PN532_CMD_RESPONSE *response, b
     
     calc_checksum += response->responseCode;
     
+    // Kontrollerar så att datan given från PN532 faktiskt är svaret på det givna kommandot
     retVal = response->verifyResponse(cmdCode) ? RESULT_SUCCESS : INVALID_RESPONSE;  
     
+    // Hämta datan från svaret
     if (RESULT_OK(retVal)) 
     {  
         // Readjust the len to account only for the data
@@ -702,7 +704,12 @@ void PN532::wirereaddata(uint8_t* buff, uint32_t n, boolean debug)
     Wire.requestFrom((uint8_t)PN532_I2C_ADDRESS, (unit8_t)(n+2)); //Begär data från PN532, +2 för att?
     
     wirerecv(); //Discard the leading 0x01
-    for(uint8_t i=0; i<n; i++){
+    
+    //for(uint8_t i=0; i<n; i++){
+    //  delay(1);
+    //}
+    // Vänta tills alla bytes har kommit in
+    while(Wire.available() != (int)n){ // Vet ej om type-casten fungerar
       delay(1);
     }
     
@@ -786,9 +793,10 @@ void PN532::wiresendcommand(uint8_t* cmd, uint8_t cmdlen, boolean debug)
       Serial.print(F(" 0x")); Serial.print(PN532_POSTAMBLE, HEX);
       Serial.println();
     }
+    Wire.endTransmission(); // Nu datan faktiskt sänds iväg
 } 
-
-//Använder Wire-biblioteket för att skriva till PN532
+//Varför inte ta bort de här metoderna och använda de metoderna som ligger under direkt??
+//Använder Wire-biblioteket för att "skriva" till PN532
 static inline void PN532::wiresend(uint8_t x)
 {
 	//Vi har Arduino version 1.0, dvs Arduino >= 100
@@ -796,7 +804,7 @@ static inline void PN532::wiresend(uint8_t x)
     Wire.write((uint8_t)x);
 }
 
-//Använder Wire-biblioteket för att läsa till PN532
+//Använder Wire-biblioteket för att läsa från PN532
 static inline uint8_t wirerecv(void)
 {
      return Wire.read();
