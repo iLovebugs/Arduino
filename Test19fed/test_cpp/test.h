@@ -7,9 +7,47 @@
 #define PN532_HOSTTOPN532 0xD4
 
 #define PN532_SAMCONFIGURATION  0x14
+#define PN532_I2C_BUSY (0x00)
 #define PN532_I2C_READY (0x01)
 #define PN532_I2C_ADDRESS (0x48 >> 1)
 
-     
+enum RESULTS
+{
+   RESULT_SUCCESS = 0x00000001,
+   GEN_ERROR = 0x80000000,
+   CONFIGURE_HARDWARE_ERROR,
+   NFC_READER_COMMAND_FAILURE,
+   NFC_READER_RESPONSE_FAILURE,
+   CONNECT_RX_FAILURE,
+   CONNECT_TX_FAILURE,
+   CONNECT_COMPLETE_RX_FAILURE,
+   CONNECT_COMPLETE_TX_FAILURE,
+   UNEXPECTED_PDU_FAILURE,
+   NDEF_MESSAGE_RX_FAILURE,
+   NDEF_MESSAGE_TX_FAILURE,
+   NPP_UNSUPPORTED_VERSION,
+   NPP_INVALID_NUM_ENTRIES,
+   NPP_INVALID_ACTION_CODE,
+   SEND_COMMAND_TX_TIMEOUT_ERROR,
+   SEND_COMMAND_RX_ACK_ERROR,
+   SEND_COMMAND_RX_TIMEOUT_ERROR,
+   INVALID_CHECKSUM_RX,
+   INVALID_RESPONSE,
+   INVALID_POSTAMBLE,
+   CLIENT_REQ_ERROR
+        
+};
+/*
+struct PN532_CMD_RESPONSE {
+   uint8_t header[2];   // 0x00 0xFF
+   uint8_t len;         
+   uint8_t len_chksum;  // len + len_chksum = 0x00 
+   uint8_t data_len;
+   uint8_t direction;
+   uint8_t responseCode;
+   uint8_t data[0];
+   
+   boolean verifyResponse(uint32_t cmdCode);
+   void printResponse();
 
 
