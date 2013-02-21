@@ -94,6 +94,7 @@ enum READER_ERRORS
 };
 
 struct PN532_CMD_RESPONSE {
+   uint8_t preamble;
    uint8_t header[2];   // 0x00 0xFF
    uint8_t len;         
    uint8_t len_chksum;  // len + len_chksum = 0x00 
@@ -159,8 +160,8 @@ private:
 
     boolean wire_readack(boolean debug = false);
     uint8_t wirereadstatus(void);
-    uint32_t wirereadcommand(uint8_t cmdCode, PN532_CMD_RESPONSE *reponse, boolean debug = false);
-    void wirereaddata(uint8_t* buff, uint32_t n, boolean debug = false);
+    uint32_t fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *reponse, boolean debug = false);
+    void fetchData(uint8_t* buff, uint32_t n, boolean debug = false);
     void wiresendcommand(uint8_t* cmd, uint8_t cmdlen, boolean debug = false);
     void wiresend(uint8_t c);
     uint8_t wirerecv(void);

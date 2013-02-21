@@ -70,7 +70,7 @@ uint32_t PN532::getFirmwareVersion(void)
 
     // read response Packet
     PN532_CMD_RESPONSE *response = (PN532_CMD_RESPONSE *) pn532_packetbuffer;
-    if (IS_ERROR(wirereadcommand(PN532_FIRMWAREVERSION, response))) // bytt till wirereadcommand, fungerar det?
+    if (IS_ERROR(fetchResponse(PN532_FIRMWAREVERSION, response))) // bytt till fetchResponse, fungerar det?
     {
        return 0;
     }
@@ -160,7 +160,7 @@ uint32_t PN532::SAMConfig(boolean debugg)
 
     // read data packet
     PN532_CMD_RESPONSE *response = (PN532_CMD_RESPONSE *) pn532_packetbuffer;
-    return wirereadcommand(PN532_SAMCONFIGURATION, response, debugg);
+    return fetchResponse(PN532_SAMCONFIGURATION, response, debugg);
 }
 /*
 uint32_t PN532::initiatorTxRxData(uint8_t *DataOut,
@@ -538,7 +538,7 @@ boolean PN532::wire_readack(boolean debug)
 {
     uint8_t ackbuff[6];
 
-    wirereaddata(ackbuff, 6, debug);
+    fetchData(ackbuff, 6, debug);
 
     return (0 == strncmp((char *)ackbuff, (char *)pn532ack, 6));
 }
@@ -559,7 +559,7 @@ uint8_t PN532::wirereadstatus(void) {
 
 
 //Bryter is�r svaret fr�n PN532 
-uint32_t PN532::wirereadcommand(uint8_t cmdCode, PN532_CMD_RESPONSE *response, boolean debug) 
+uint32_t PN532::fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *response, boolean debug) 
 {
 
     uint8_t calc_checksum = 0;
@@ -576,15 +576,53 @@ uint32_t PN532::wirereadcommand(uint8_t cmdCode, PN532_CMD_RESPONSE *response, b
     
     uint32_t retVal = RESULT_SUCCESS;
     
+    fetchData((uint8_t *)response, (uint32_t)5, true);
+        
+    Serial.println(response->preamble, HEX);
+    Serial.println(response->header[0], HEX);
+    Serial.println(response->header[1], HEX);
+    Serial.println(response->len, HEX);
+    Serial.println(response->len_chksum, HEX);
+    Serial.println(response->data_len, HEX);
+    Serial.println(response->direction, HEX);
+    Serial.println(response->responseCode, HEX);
+    Serial.println(response->data[0], HEX);
+    Serial.println(response->data[1], HEX);
+    Serial.println("done");
+    
+    // Fetch data and remaining part
+    
+    fetchData(&(response->direction), (uint32_t)response->data_len+2, true);
+    
+    
+    Serial.println(response->preamble, HEX);
+    Serial.println(response->header[0], HEX);
+    Serial.println(response->header[1], HEX);
+    Serial.println(response->len, HEX);
+    Serial.println(response->len_chksum, HEX);
+    Serial.println(response->data_len, HEX);
+    Serial.println(response->direction, HEX);
+    Serial.println(response->responseCode, HEX);
+    Serial.println(response->data[0], HEX);
+    Serial.println(response->data[1], HEX);
+    Serial.println(response->data[2], HEX);
+    Serial.println("done");
+    /*
     do 
     {
        Serial.println(Wire.available());
-       wirereaddata(response, 1, debug);
+        delay(1);
        // response->header[0] = response->header[1];
-       delay(1);
+      
        response->header[1] = wirerecv();
        //Serial.println(response->header[1]);
     } while (response->header[0] != 0x00 || response->header[1] != 0xFF);
+    */
+    delay(100);
+    Serial.print("Bytes in the in-buffer:");
+    Serial.print(Wire.available());
+    
+    /*
     Serial.println("OK!");
     delay(1);
     response->len = wirerecv();  
@@ -650,37 +688,38 @@ uint32_t PN532::wirereadcommand(uint8_t cmdCode, PN532_CMD_RESPONSE *response, b
       Serial.println(ret_checksum, HEX);
       Serial.println();    
     }
-
+*/
     return retVal;
 }
 
-
-void PN532::wirereaddata(uint8_t* buff, uint32_t n, boolean debug) 
+void PN532::fetchData(uint8_t* buff, uint32_t n, boolean debug) 
 {    
-    delay(2);
-    
+    delay(2000);    
     
     if (debug) 
     {
-        Serial.println(F("wirereaddata"));
+        Serial.println(F("fetchData"));
+    }
+    while(wirereadstatus() == PN532_I2C_READY){
+      Serial.println("Nothing to fetch");
+      delay(10);
     }
     
+    Serial.println("Something to fetch :)");
     Wire.requestFrom((uint8_t)PN532_I2C_ADDRESS, (uint8_t)(n+1)); //Begär data från PN532, +2 för att?
     
-    Serial.println("successful request");
+    Serial.println("successful request of ");
+    Serial.println(n);
     wirerecv();//testing delay
-    // Vänta tills alla bytes har kommit in
     
-    Serial.println(Wire.available());
+    Serial.print(Wire.available());
+    Serial.println(" bytes fetched.");
+  
     
-    while(Wire.available() != (int)n){ // Vet ej om type-casten fungerar
-      delay(1);
-      Serial.println("I2C not avilable");
-    }
+    Serial.println("No more data to be fetched");
     
-    Serial.println("I2C avilable");
-    
-    for (uint8_t i=0; i<n; i++){
+    Serial.println("Data given: ");
+    for (uint16_t i=0; i<n; i++){
         delay(1);
         buff[i] = wirerecv();
         
@@ -695,6 +734,7 @@ void PN532::wirereaddata(uint8_t* buff, uint32_t n, boolean debug)
     {
         Serial.println();
     }   
+    Serial.println("End data given");
 }
 
 
