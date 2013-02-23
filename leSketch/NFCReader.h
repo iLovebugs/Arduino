@@ -64,9 +64,10 @@ public:
                              uint8_t blockaddress, //0 to 63 
                              uint8_t * block);	
    
-   virtual uint32_t configurePeerAsInitiator(uint8_t baudrate) = 0;  
+   virtual uint32_t configurePeerAsInitiator(uint8_t baudrate) = 0;
+ */  
    virtual uint32_t configurePeerAsTarget(uint8_t type) = 0;   
-   
+ /* 
    
    virtual uint32_t initiatorTxRxData(uint8_t *DataOut, 
                                        uint32_t dataSize, 

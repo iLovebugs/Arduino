@@ -41,9 +41,9 @@
 
 #define PN532_I2C_ADDRESS (0x48 >> 1)
 #define PN532_I2C_READBIT (0x01)
-#define PN532_I2C_BUSY (0x00)
-#define PN532_I2C_READY (0x01)
-#define PN532_I2C_READYTIMEOUT (20)
+#define PN532_I2C_DATA_TO_FETCH (0x00)
+#define PN532_I2C_NO_DATA (0x01)
+#define TIMEOUT (20)
 
 #define PN532_MIFARE_ISO14443A 0x0
 
@@ -98,7 +98,6 @@ struct PN532_CMD_RESPONSE {
    uint8_t header[2];   // 0x00 0xFF
    uint8_t len;         
    uint8_t len_chksum;  // len + len_chksum = 0x00 
-   uint8_t data_len;
    uint8_t direction;
    uint8_t responseCode;
    uint8_t data[0];
@@ -131,9 +130,10 @@ public:
                               uint8_t blockaddress, //0 to 63
                               uint8_t * block);
 
-    uint32_t configurePeerAsInitiator(uint8_t baudrate); 
+    uint32_t configurePeerAsInitiator(uint8_t baudrate);
+ */   
     uint32_t configurePeerAsTarget(uint8_t type); 
-    
+ /* 
     uint32_t getTargetStatus(uint8_t *response);
 */
     uint32_t sendCommandCheckAck(uint8_t *cmd, 
@@ -158,11 +158,11 @@ public:
 private:
     uint8_t _irq, _reset;
 
-    boolean wire_readack(boolean debug = false);
-    uint8_t wirereadstatus(void);
+    boolean fetchCheckAck(boolean debug = false);
+    uint8_t checkDataAvailable(void);
     uint32_t fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *reponse, boolean debug = false);
     void fetchData(uint8_t* buff, uint32_t n, boolean debug = false);
-    void wiresendcommand(uint8_t* cmd, uint8_t cmdlen, boolean debug = false);
+    void sendFrame(uint8_t* cmd, uint8_t cmdlen, boolean debug = false);
     void wiresend(uint8_t c);
     uint8_t wirerecv(void);
 };
