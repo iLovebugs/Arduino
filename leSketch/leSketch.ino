@@ -3,6 +3,7 @@
 
 uint8_t _irq = 2;
 uint8_t _reset = 3;
+boolean debug = true;
 
 PN532 nfc(_irq,_reset);
 
@@ -11,7 +12,7 @@ void setup(void){
   Serial.begin(9600);
   Serial.println("Hello!");
 
-
+  
   nfc.initializeReader();
 
 }
@@ -20,19 +21,24 @@ void loop(){
   Serial.println();
   Serial.println(F("---------------- LOOP ----------------------"));
   Serial.println();
-
-  Serial.println("Samconfig");
-  nfc.SAMConfig(true);
+ 
+ 
+ //TODO, this method returns weither it was successfull or not
+  nfc.SAMConfig(debug);
   
   delay(5);
-  Serial.println(nfc.getFirmwareVersion());
+  Serial.println(nfc.getFirmwareVersion(debug));
   delay(5);
   
-  //Lite hybris kanske...
-  nfc.configurePeerAsTarget(1);
-  delay(5);
-  if(digitalRead(_irq));
-    Serial.println("ingen data att hämta");
+  //TODO
+  //nfc.configurePeerAsTarget(1);
+  //delay(5);
   
-  delay(100000);
-}
+    
+  Serial.println();
+  Serial.println(F("---------------- END LOOP ----------------------"));
+  Serial.println();
+  
+  //Type y in Serial Monitor
+  while((char)Serial.read() != 'y' );
+ }

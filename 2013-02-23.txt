@@ -1,0 +1,46 @@
+Koden är nu bättre indenterad (bitvis).
+
+Utskrifter har placerats i if(debugs), programmet kan nästan helt utan utskrifter.
+
+Utskrifterna följer nu mönstert:
+
+<Metodnamn> : "Meddelande"
+
+En hel del onödiga delays har tagits bort
+
+main Loop körs nu inte om och om igen. Skriv "y" i Serial monitorn för att köra om.
+
+Samtliga metoder som används ännsålänge tar nu en boolean debug som argument.
+
+Mer specifika ändringar för varje metod:
+
+fetchData(uint8_t* buff, uint16_t timeout, boolean debug):
+Denna metoden har gjorts om lite grand. tar nu inte in hur mycket som skall läsas in, utan en delay istället.
+Argumnetet antal inläsningar var överflödigt, vi använde inte den i själa inläsningen dvs requestFrom.
+Vi använde det istället nere i en loop som kör Wire.read(). Vi körde loopen 150 ggr istället för så många gånger
+som det finns data på buffern. Detta har tillsynes inte påverkar funktionaliteten hos koden.
+
+fetchResponse():
+Diverse onödiga utskrifter har tagits bort. Mycket viktigt i c är pre-increment/post-increment. Var en källa till
+buggar i koden. 
+
+printResponse()
+Mycket av utskrifterna i fetchresponse har flyttats hit. Mycket intressant hur denna metod får tillgång till
+variablerna i responsstrukten! Kanske kan göra om fetchresponse med denna insikt?
+
+
+
+Kända buggar:
+
+Utskriften från printRespons tycker att ret_checksum är noll, den är 0x22. Lustigt.
+
+En mycket stor bugg som fick mig att sitta och felsöka i typ 3 timmar finns i sendcommandCheckAck.
+En av de två:
+
+    Serial.print("This makes no sense!");
+    Serial.println(checkDataAvailable());
+
+måste finnas på plats. Annars slutar koden att fungera... Jag finner INGEN som hellst förklaring till detta...
+Har dessutom testat med varierande (kan ha missat sweetspotten) delay för att kompensera borttagnignen.
+Detta fungerade inte... Akten att observera data verkar vara det som skapar den... Nu blev det filosofiskt här...
+

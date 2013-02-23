@@ -21,11 +21,9 @@ uint8_t pn532response_firmwarevers[] = {0x00, 0xFF, 0x06, 0xFA, 0xD5, 0x03};
 //Buffern som allt l�ggs p�, rymmer ett standard PN532 commando
 uint8_t pn532_packetbuffer[TS_GET_DATA_IN_MAX_SIZE];
 
-//Pinnarna i argumentet skall defineras av oss i huvudfilen!  
+//Creating a PN532 
 PN532::PN532(uint8_t irq, uint8_t reset) 
 {
-    //argumenten har reducerats. I2C kr�ver mycket mindre pinnar!
-	//Dessa pinnar skall defineras i v�r main
     _irq = irq;
     _reset = reset;
 
@@ -33,45 +31,27 @@ PN532::PN532(uint8_t irq, uint8_t reset)
     pinMode(_reset, OUTPUT);
 }
 
-//Hur kommer vi ur lowVbat med I2C som saknar slave select!
-// Verkar vara s� att denna metod �r helt on�dig ?
+//Initializes the PN532
 void PN532::initializeReader() 
 {
-								//Pinnarna som st�ller in vilket interfacelage som skall k�ras �r antagligen konstanta.
-	Wire.begin();				// Hoppar med p� I2C bussen som "master"
-	digitalWrite(_reset, HIGH); // skriva till reset verar vara �verfl�dig.... ? 
-	digitalWrite(_reset, LOW);
-	delay(400); 
-	digitalWrite(_reset, HIGH);
-
-	/**
-    digitalWrite(_ss, LOW);
-
-    delay(1000);
-
-    // not exactly sure why but we have to send a dummy command to get synced up
-    pn532_packetbuffer[0] = PN532_FIRMWAREVERSION;
-    sendCommandCheckAck(pn532_packetbuffer, 1);
-
-    // ignore response!
-	**/
+  Wire.begin(); // Joining I2C buss as master
 }
 
 
-uint32_t PN532::getFirmwareVersion(void) 
+uint32_t PN532::getFirmwareVersion(boolean debug) 
 {
     uint32_t version;
 
     pn532_packetbuffer[0] = PN532_FIRMWAREVERSION;
 
-    if (IS_ERROR(sendCommandCheckAck(pn532_packetbuffer, 1))) 
+    if (IS_ERROR(sendCommandCheckAck(pn532_packetbuffer, 1,1000,debug))) 
     {
         return 0;
     }
 
     // read response Packet
     PN532_CMD_RESPONSE *response = (PN532_CMD_RESPONSE *) pn532_packetbuffer;
-    if (IS_ERROR(fetchResponse(PN532_FIRMWAREVERSION, response))) // bytt till fetchResponse, fungerar det?
+    if (IS_ERROR(fetchResponse(PN532_FIRMWAREVERSION, response , debug))) // bytt till fetchResponse, fungerar det?
     {
        return 0;
     }
@@ -97,40 +77,42 @@ uint32_t PN532::sendCommandCheckAck(uint8_t *cmd,
                                     boolean debug) 
 {
     uint16_t timer = 0;
-    Serial.println("sendCommandCheckAck");
+    if(debug)
+      Serial.println("<sendCommandCheckAck> ");
     
-        // send the command frame
+     // send the command frame
     sendFrame(cmd, cmdlen, debug);
     
     // Wait for chip to say it has data to send
    
-    
-    Serial.print("sendCommandCheckAck: Data available, IRQ: ");
-    Serial.println(checkDataAvailable());
-    delay(1000);
-    
     // read acknowledgement
     if (!fetchCheckAck(debug)) {
         return SEND_COMMAND_RX_ACK_ERROR;
-        Serial.println("ACK error"); 
+        Serial.println("<SendcommandCheckAck>: ACK error"); 
     }
-      
-    Serial.print("sendCommandCheckAck: Data available???, IRQ: ");
+    
+    //Something is WRONG... remove these two prints and all hell is losed... 
+    Serial.print("This makes no sense!");
     Serial.println(checkDataAvailable());
-    delay(1000);
-        
-    Serial.println("sendCommandCheckAck: Great success & command is ack'd!");
+    
+    if(debug)       
+      Serial.println("<sendCommandCheckAck>: PN532 Successfully recieved host command");
+      
     return RESULT_SUCCESS; // ack'd command
 }
 
-uint32_t PN532::SAMConfig(boolean debugg) 
+uint32_t PN532::SAMConfig(boolean debug) 
 {
+    if(debug){
+      Serial.println("<SAMconfig>: Creating SAMconfig message");
+    }
+    
     pn532_packetbuffer[0] = PN532_SAMCONFIGURATION;
     pn532_packetbuffer[1] = 0x01; // normal mode;
     pn532_packetbuffer[2] = 0x14; // timeout 50ms * 20 = 1 second
     pn532_packetbuffer[3] = 0x01; // use IRQ pin!
     
-    uint32_t result = sendCommandCheckAck(pn532_packetbuffer, 4, 1000, debugg);
+    uint32_t result = sendCommandCheckAck(pn532_packetbuffer, 4, 1000, debug);
 
     if (IS_ERROR(result)) 
     {
@@ -140,7 +122,7 @@ uint32_t PN532::SAMConfig(boolean debugg)
 
     // read data packet
     PN532_CMD_RESPONSE *response = (PN532_CMD_RESPONSE *) pn532_packetbuffer;
-    return fetchResponse(PN532_SAMCONFIGURATION, response, debugg);
+    return fetchResponse(PN532_SAMCONFIGURATION, response, debug);
 }
 /********** LARGE CHUNK CUT OUT, placed at file bottom  **********/
 
@@ -149,18 +131,20 @@ uint32_t PN532::SAMConfig(boolean debugg)
 
 boolean PN532::fetchCheckAck(boolean debug)
 {
+    //Create buffer of size 6 to recieve an ack
     uint8_t ackbuff[6];
 
-    //fetchData(ackbuff, 6, debug);
+    
     int timer = 0;
     int timeout = 1000;
     
+    //Wait 1 ms for PN532 to send the ack, else timeout
     while ((checkDataAvailable()) == PN532_I2C_NO_DATA){
       delay(10);
       timer+=10;
       
       if (timer > timeout){
-        Serial.println("Timeout");
+        Serial.println("<fetchCheckAck>: Timeout");
         return 0;                 
      }
     }
@@ -168,19 +152,26 @@ boolean PN532::fetchCheckAck(boolean debug)
     Wire.requestFrom((uint8_t)PN532_I2C_ADDRESS, (uint8_t)7);
     Wire.read();//take away rubbish due to I2C delay
             
-    Serial.println("fetchCheckAck: Data given: ");
+    if(debug)
+      Serial.println("<fetchCheckAck>: Data recieved from PN532:  ");
+      
     for (uint16_t i=0; i<7; i++){
         delay(1);
         ackbuff[i] = Wire.read();
         
         if (debug)
-        {
+        {         
             Serial.print(F(" 0x"));
-            Serial.print(ackbuff[i], HEX);
+            Serial.print(ackbuff[i], HEX);            
         }
     }
-    if((0 == strncmp((char *)ackbuff, (char *)pn532ack, 6)))
-      Serial.println("\fetchCheckAck: Ack matched");
+    
+    if(debug){
+      Serial.println();   
+      if((0 == strncmp((char *)ackbuff, (char *)pn532ack, 6)))
+      Serial.println("<fetchCheckAck>: Ack recieved");
+      Serial.println();
+    }
       
     return (0 == strncmp((char *)ackbuff, (char *)pn532ack, 6));
 }
@@ -203,200 +194,184 @@ uint8_t PN532::checkDataAvailable(void) {
 //Bryter isär svaret fr�n PN532 
 uint32_t PN532::fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *response, boolean debug) 
 {
+  
+  if(debug)
+    Serial.println("<fetchResponse>");
 
     uint8_t calc_checksum = 0;
     uint8_t ret_checksum;
         
-    // Wattafack?
-    response->header[0] = response->header[1] = 0xAA;
+    //response->header[0] = response->header[1] = 0xAA;  Useless?
     
     uint32_t retVal = RESULT_SUCCESS;
     
-    fetchData((uint8_t *)response, (uint32_t)150, true);
-    
-    Serial.println(response->preamble, HEX);
-    Serial.println(response->header[0], HEX);
-    Serial.println(response->header[1], HEX);
-    Serial.println(response->len, HEX);
-    Serial.println(response->len_chksum, HEX);
-    Serial.println(response->direction, HEX);
-    Serial.println(response->responseCode, HEX);
-    Serial.println(response->data[0], HEX);
-    Serial.println(response->data[1], HEX);
-    Serial.println(response->data[2], HEX);
-    Serial.println("done");
-    
+    //Argument length is now removed as we didn't care about it, used Chunk instead
+    fetchData((uint8_t *)response, 1000 ,debug);
 
-    
-    // Kontrollerar så att datan given från PN532 faktiskt är svaret på det givna kommandot
-    //Detta måste vara det coolaste jag sett när det gäller c. Man kör en metod I en strukt genom att
-    //Använa pil operatorn på en metod?
     retVal = response->verifyResponse(cmdCode) ? RESULT_SUCCESS : INVALID_RESPONSE;      
     
-    //Vart kommer RESULT_OK från?
+    //Dont get this part
     if (RESULT_OK(retVal)){  
-        Serial.println("correct Startcode, length and response code");
       
       calc_checksum += response->direction;
       calc_checksum += response->responseCode;
       
-      // Add data field to checksum
+      // Add data fields to checksum
+      // 2 is removed since direction (TFI) and responsCode is included in LEN
+      //Never run for frames with len < 3, e.g response to a SAMconfig()
         uint8_t i = 0;
-        uint8_t temp_len =  response -> len ;
-        
-        Serial.print("Data length: ");
-        Serial.println(temp_len );
-        //Här är temp_len 0 när vi får svaret, eftersom datalength bara är 2.
-        
         for ( i; i < response -> len -2 ; i++){
             calc_checksum +=  response->data[i];
          }
+                  
+       // Find Packet Data Checksum. Will be pointed to after the above loop
+       uint8_t ret_checksum = response->data[i++];
          
-         
-         Serial.print("Nuvarande I-värde: ");
-         Serial.println(i);
-         
-           // Find Packet Data Checksum. Vi hämtar data[0] vilket är 0x16 = 22, detta bekreftas nedan.
-           // Detta är också data Checksum då data 0 är fäst på byten efter direction!... alltså är detta korrekt 
-         uint8_t ret_checksum = response->data[i++];
-         
-         //Debugg
-         Serial.print("Nuvarande I-värde: ");
-         Serial.println(i);
-         
-         
-         Serial.print("Fetched checksum: ");
-         Serial.println(ret_checksum);
         
         // Check if the checksums are correct
          if (((uint8_t)(calc_checksum + ret_checksum)) != 0x00) 
          {
             Serial.println(F("Invalid Checksum recievied."));
             retVal = INVALID_CHECKSUM_RX;
-         }
-         
-         
-         Serial.println("Correct checksum");
-         //Denna utskrift ges, alltså går vi inte in i if-satsen ovan, slutsatsen är att vi har beräknat checksum korrekt.
+         }         
          
         // Find Postamble
-         uint8_t postamble = response->data[i];
-        //I pekar redan på postamble, alltså behövs ingen ökning! 
-         
-         
-         //Debugg
-         Serial.print("Nuvarande I-värde: ");
-         Serial.println(i);
-         
-         
-         //Denna blir nu 0!!!
-         Serial.println(postamble);
-         
+         uint8_t postamble = response->data[i];         
+                 
          
          if (RESULT_OK(retVal) && postamble != 0x00) 
          {
              retVal = INVALID_POSTAMBLE;
              Serial.println(F("Invalid Postamble."));
-         }
-         
-         Serial.println("Svarsmeddelande har tagits emot korrekt!");
-       
+         }       
     }
     
    
-    if (debug)
-    {
+    if (debug){
       response->printResponse();
       
+      Serial.println();
       Serial.print(F("Calculated Checksum: 0x"));
-      Serial.print(calc_checksum, HEX);
+      Serial.println(calc_checksum, HEX);
       Serial.print(F(" Returned Checksum: 0x") );
-      Serial.println(ret_checksum, HEX); //Helt slumpat blir ret_checksum 0....
-      Serial.println();    
+      Serial.println(ret_checksum, HEX); 
+      Serial.println();      
     }
 
     return retVal;
 }
 
-void PN532::fetchData(uint8_t* buff, uint32_t n, boolean debug) 
+void PN532_CMD_RESPONSE::printResponse(){
+    Serial.println();
+    Serial.println("Response");
+    Serial.print("Preamble: 0x");
+    Serial.println(preamble, HEX);
+    Serial.print("Startcode: 0x");
+    Serial.print(header[0], HEX);
+    Serial.print(" 0x");
+    Serial.println(header[1], HEX);
+    Serial.print("Len: 0x");
+    Serial.println(len, HEX);
+    Serial.print("LCS: 0x");
+    Serial.println(len_chksum, HEX);
+    Serial.print("Direction: 0x");
+    Serial.println(direction, HEX);
+    Serial.print("Response Command: 0x");
+    Serial.println(responseCode, HEX);
+    
+    Serial.println("Data: ");
+    
+    for (uint8_t i = 0; i < len-2; ++i){
+        Serial.print(F("0x"));
+        Serial.print(data[i], HEX);
+        Serial.print(F(" "));
+    }   
+}
+
+
+
+
+
+void PN532::fetchData(uint8_t* buff, uint16_t timeout, boolean debug) 
 {    
-    delay(2000);    
+    delay(2000);  //Temporary delay for PN532 to send data  
     
     if (debug) 
     {
-        Serial.println(F("fetchData"));
-    }
+        Serial.println("<fetchData>");
+    }    
+    //TODO add a timeout
+      uint16_t time = 0;
+      while(checkDataAvailable() == PN532_I2C_NO_DATA){        
+        Serial.println("<fetchData>: Nothing to fetch");
+        delay(10);
+      }
     
-    //Vänta på att PN532 har något att sända... Kanske skall ha en timeout eller skall denna kanske bort sedan?
-    while(checkDataAvailable() == PN532_I2C_NO_DATA){
-      Serial.println("fetchData: Nothing to fetch");
-      delay(10);
-    }
-    
-    //Hämta en Chunk av datam fortsätt Chunks tills dessa tt PN532 inte har något att ge oss
+    //Fetches a predefined Chunk of data.
+    //Will continue to fetch chuks aslong as PN532 has something to send
     while(checkDataAvailable() == PN532_I2C_DATA_TO_FETCH){
-      Serial.println("fetchData: Fetching new chunk of data");
+      Serial.println("<fetchData>: Fetching new chunk of data");
       Wire.requestFrom((uint8_t)PN532_I2C_ADDRESS, (uint8_t)(CHUNK_OF_DATA+1));
       delay(8);
       Wire.read();//take away rubbish due to I2C delay
     }
     
-    //Dessa utskrifter blir bajs i terminalen, varför? Hade ju varit intressant att se på hur måga bytes som vi faktiskt har läst in. 
-        
-    Serial.print("fetchData: " + Wire.available());
-    Serial.println(" bytes fetched.");
-        
-    Serial.println("fetchData: Data given: ");
+    //Changed from n = argument set at 150 to actual size of read data..    
+    uint8_t n = Wire.available();
+    
+    if(debug){        
+      Serial.print("<fetchData>: ");
+      Serial.print(n);
+      Serial.println(" bytes fetched");
+      Serial.println("<fetchData>: Data recieved from PN532: ");
+    }
+    
     for (uint16_t i=0; i<n; i++){
         delay(1);
         buff[i] = Wire.read();
         
-        if (debug)
-        {
+        if (debug){            
             Serial.print(F(" 0x"));
             Serial.print(buff[i], HEX);
         }
     }
 
-    if (debug)
-    {
+    if (debug){
         Serial.println();
+        Serial.println("<fetchData>: data fetched");
     }   
-    Serial.println("fetchData: End data given");
+    
 }
 
 
 void PN532::sendFrame(uint8_t* cmd, uint8_t cmdlen, boolean debug)
 {
   uint8_t checksum;
+  
+  //Increasing the cmdlen to include the TFI (Direction)
   cmdlen++;
 
-  //Skriver ut på terminalen
-  if (debug) 
-  {
-    Serial.print(F("\nsendFrame: Sending: "));
-  }
-
-  delay(2);     // or whatever the delay is for waking up the board    
+  delay(2);                               // or whatever the delay is for waking up the board    
   Wire.beginTransmission(PN532_I2C_ADDRESS);
 
 
-  checksum = PN532_PREAMBLE + PN532_PREAMBLE + PN532_STARTCODE2;
+  checksum = PN532_PREAMBLE + PN532_STARTCODE1 + PN532_STARTCODE2;
 
-  //Mycket riktigt är det 00x x00 xFF som är startsekvensen för PN532
+  
   Wire.write(PN532_PREAMBLE);
   Wire.write(PN532_STARTCODE1);
   Wire.write(PN532_STARTCODE2);
 
-  Wire.write(cmdlen); //LEN
-  uint8_t cmdlen_1=~cmdlen + 1;
-  Wire.write(cmdlen_1);		//tvåkompleterar cmdlen, används som LCS length checksum
-  Wire.write(PN532_HOSTTOPN532);	//TFI specificeras som från host till PN532 (0xD4)
+  Wire.write(cmdlen);                   //LEN
+  uint8_t cmdlen_1=~cmdlen + 1;         //calculating the two's complement of cmdlen is used as the LCS
+  Wire.write(cmdlen_1);		        //LCS        
+  Wire.write(PN532_HOSTTOPN532);        //TFI 
 
-  checksum += PN532_HOSTTOPN532; //Checksumen ökas...
+  checksum += PN532_HOSTTOPN532;         
 
   if (debug) 
   {
+    Serial.print("<sendFrame>: Sending: ");
     Serial.print(F(" 0x")); 
     Serial.print(PN532_PREAMBLE, HEX);
     Serial.print(F(" 0x")); 
@@ -412,9 +387,9 @@ void PN532::sendFrame(uint8_t* cmd, uint8_t cmdlen, boolean debug)
   }
 
     
-  //Denna loopen står för skickadet av själva kommandot dvs PD0...PDN
+  
   for (uint8_t i=0; i<cmdlen-1; i++) {
-    Wire.write(cmd[i]);
+    Wire.write(cmd[i]);                //PD0...PDN
     checksum += cmd[i];  
 
     if (debug) 
@@ -424,9 +399,9 @@ void PN532::sendFrame(uint8_t* cmd, uint8_t cmdlen, boolean debug)
     }
   }
 
-  uint8_t checksum_1= ~checksum;
+  uint8_t checksum_1= ~checksum;      
   
-  Wire.write(checksum_1); //Varför invereras bara detta? Hur vet man att den verklige uppfyller kravet
+  Wire.write(checksum_1);             //DCS
   Wire.write(PN532_POSTAMBLE); 
 
 
@@ -440,7 +415,7 @@ void PN532::sendFrame(uint8_t* cmd, uint8_t cmdlen, boolean debug)
   }
   Serial.println(Wire.endTransmission()); // Nu datan faktiskt sänds iväg
   
-  Serial.println("sendFrame: sendCommand done");
+  Serial.println("<sendFrame>: Command sent");
 }
 
 /******* PN532_CMD_RESPONSE methods */
@@ -454,27 +429,7 @@ boolean PN532_CMD_RESPONSE::verifyResponse(uint32_t cmdCode)
             (cmdCode + 1) == responseCode);
 }
 
-void PN532_CMD_RESPONSE::printResponse() 
-{
-    Serial.println(F("Response"));
-    Serial.print(F("Len: 0x"));
-    Serial.println(len, HEX);
-    Serial.print(F("Direction: 0x"));
-    Serial.println(direction, HEX);
-    Serial.print(F("Response Command: 0x"));
-    Serial.println(responseCode, HEX);
-    
-    Serial.println("Data: ");
-    
-    for (uint8_t i = 0; i < len-2; ++i) 
-    {
-        Serial.print(F("0x"));
-        Serial.print(data[i], HEX);
-        Serial.print(F(" "));
-    }
-    
-    Serial.println();
-}
+
 
 /********** CUT OUT **********
 

@@ -113,7 +113,7 @@ public:
 
     void initializeReader();
     uint32_t SAMConfig(boolean debugg);    
-    uint32_t getFirmwareVersion(void);
+    uint32_t getFirmwareVersion(boolean);
     /*
     uint32_t readPassiveTargetID(uint8_t cardbaudrate);
     uint32_t authenticateBlock(	uint8_t cardnumber, //1 or 2
@@ -161,7 +161,7 @@ private:
     boolean fetchCheckAck(boolean debug = false);
     uint8_t checkDataAvailable(void);
     uint32_t fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *reponse, boolean debug = false);
-    void fetchData(uint8_t* buff, uint32_t n, boolean debug = false);
+    void fetchData(uint8_t* buff, uint16_t timeout = 1000, boolean debug = false);
     void sendFrame(uint8_t* cmd, uint8_t cmdlen, boolean debug = false);
     void wiresend(uint8_t c);
     uint8_t wirerecv(void);
