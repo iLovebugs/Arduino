@@ -113,7 +113,7 @@ public:
 
     void initializeReader();
     uint32_t SAMConfig(boolean debugg);    
-    uint32_t getFirmwareVersion(boolean);
+    void getFirmwareVersion(boolean);
     /*
     uint32_t readPassiveTargetID(uint8_t cardbaudrate);
     uint32_t authenticateBlock(	uint8_t cardnumber, //1 or 2
@@ -132,7 +132,7 @@ public:
 
     uint32_t configurePeerAsInitiator(uint8_t baudrate);
  */   
-    uint32_t configurePeerAsTarget(uint8_t type); 
+    uint32_t configurePeerAsTarget(uint8_t type, boolean debug); 
  /* 
     uint32_t getTargetStatus(uint8_t *response);
 */
@@ -158,7 +158,7 @@ public:
 private:
     uint8_t _irq, _reset;
 
-    boolean fetchCheckAck(boolean debug = false);
+    boolean fetchCheckAck(boolean debug = false, uint16_t timeout = 1000);
     uint8_t checkDataAvailable(void);
     uint32_t fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *reponse, boolean debug = false);
     void fetchData(uint8_t* buff, uint16_t timeout = 1000, boolean debug = false);

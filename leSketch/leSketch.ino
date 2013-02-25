@@ -27,12 +27,12 @@ void loop(){
   nfc.SAMConfig(debug);
   
   delay(5);
-  Serial.println(nfc.getFirmwareVersion(debug));
+  nfc.getFirmwareVersion(debug);
   delay(5);
   
-  //TODO
-  //nfc.configurePeerAsTarget(1);
-  //delay(5);
+  if(RESULT_SUCCESS == nfc.configurePeerAsTarget(NPP_SERVER, debug))
+    Serial.println("Kababu!!!!!!!!!!!!!!!!!");
+  delay(5);
   
     
   Serial.println();
