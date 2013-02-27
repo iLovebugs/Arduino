@@ -24,17 +24,27 @@ void loop(){
  
  
  //TODO, this method returns weither it was successfull or not
+  Serial.println("BEGIN SAMCONFIG.");
   nfc.SAMConfig(debug);
+  Serial.println("END SAMCONFIG.");
   
+  Serial.println("BEGIN GetFirmwareVersion.");
   delay(5);
   nfc.getFirmwareVersion(debug);
   delay(5);
+  Serial.println("END GetFirmwareVersion.");
+  
+  Serial.println("BEGIN GENERAL STATUS.");
+  if(RESULT_SUCCESS == nfc.getGeneralStatus(debug)){
+    Serial.println("SUCCESS.");
+  }
+  delay(5);
+  Serial.println("END GENERAL STATUS.");
   
   if(RESULT_SUCCESS == nfc.configurePeerAsTarget(NPP_SERVER, debug))
     Serial.println("Kababu!!!!!!!!!!!!!!!!!");
   delay(5);
   
-    
   Serial.println();
   Serial.println(F("---------------- END LOOP ----------------------"));
   Serial.println();

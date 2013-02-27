@@ -9,9 +9,8 @@
 
 #define PN532DEBUG 1
 
-
-
 uint8_t pn532ack[] = {0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00};
+uint8_t pn532error[] = {0x00, 0x00, 0xFF, 0x01, 0xFF, 0x7F, 0x81, 0x00};
 uint8_t pn532response_firmwarevers[] = {0x00, 0xFF, 0x06, 0xFA, 0xD5, 0x03};
 
 #define COMMAND_RESPONSE_SIZE 3 
@@ -78,7 +77,22 @@ void PN532::getFirmwareVersion(boolean debug)
     Serial.println((versiondata>>8) & 0xFF, DEC);
     Serial.print("Supports "); Serial.println(versiondata & 0xFF, HEX);    
   }
+uint32_t PN532::getGeneralStatus(boolean debug){
+  
+    pn532_packetbuffer[0] = PN532_GETGENERALSTATUS;
+    
+    uint32_t result = sendCommandCheckAck(pn532_packetbuffer, 1, 1000, debug);
 
+    if (IS_ERROR(result)) 
+    {
+        Serial.println("getGeneralStatus: SEND_COMMAND_TX_TIMEOUT_ERROR");
+        return result;
+    }
+
+    // read data packet
+    PN532_CMD_RESPONSE *response = (PN532_CMD_RESPONSE *) pn532_packetbuffer;
+    return fetchResponse(PN532_SAMCONFIGURATION, response, debug);
+}
 
 // default timeout of one second
 uint32_t PN532::sendCommandCheckAck(uint8_t *cmd, 
@@ -142,15 +156,14 @@ boolean PN532::fetchCheckAck(boolean debug, uint16_t timeout)
 
     
     uint16_t timer = 0;
-    
-    //Wait 1 ms for PN532 to send the ack, else timeout
+    //Wait timeout for PN532 to send the ack, else timeout
     while ((checkDataAvailable()) == PN532_I2C_NO_DATA){
       delay(10);
       timer+=10;
       
       if (timer > timeout){
         Serial.println("<fetchCheckAck>: Timeout");
-        return 0;                 
+        return 0;
      }
     }
         
@@ -173,7 +186,7 @@ boolean PN532::fetchCheckAck(boolean debug, uint16_t timeout)
     
     if(debug){
       Serial.println();   
-      if((0 == strncmp((char *)ackbuff, (char *)pn532ack, 6)))
+      if(0 == strncmp((char *)ackbuff, (char *)pn532ack, 6))
       Serial.println("<fetchCheckAck>: Ack recieved");
       Serial.println();
     }
@@ -200,8 +213,8 @@ uint8_t PN532::checkDataAvailable(void) {
 uint32_t PN532::fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *response, boolean debug) 
 {
   
-  if(debug)
-    Serial.println("<fetchResponse>");
+    if(debug)
+      Serial.println("<fetchResponse>");
 
     uint8_t calc_checksum = 0;
     uint8_t ret_checksum;
@@ -209,10 +222,22 @@ uint32_t PN532::fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *response, boo
     //response->header[0] = response->header[1] = 0xAA;  Useless?
     
     uint32_t retVal = RESULT_SUCCESS;
+      
     
-    //Argument length is now removed as we didn't care about it, used Chunk instead
+    //Fetch the data
     fetchData((uint8_t *)response, 1000 ,debug);
-
+    
+    /* Won't work
+    // Check if an error frame was fetched
+    if(0 == strncmp((char *)response, (char *)pn532error, 8)){
+      retVal = SEND_COMMAND_RX_ERROR_FRAME;
+      
+        if(debug){
+          Serial.println("<fetchResponse>: Error frame recieved");
+        }
+      return retVal;
+    }*/
+    
     retVal = response->verifyResponse(cmdCode) ? RESULT_SUCCESS : INVALID_RESPONSE;      
     
     //Dont get this part
@@ -359,17 +384,14 @@ void PN532::sendFrame(uint8_t* cmd, uint8_t cmdlen, boolean debug)
 
   delay(2);                               // or whatever the delay is for waking up the board    
   Wire.beginTransmission(PN532_I2C_ADDRESS);
-
-
-  checksum = PN532_PREAMBLE + PN532_STARTCODE1 + PN532_STARTCODE2;
-
   
+  // Make whole frame  
   Wire.write(PN532_PREAMBLE);
   Wire.write(PN532_STARTCODE1);
   Wire.write(PN532_STARTCODE2);
 
   Wire.write(cmdlen);                   //LEN
-  uint8_t cmdlen_1=~cmdlen + 1;         //calculating the two's complement of cmdlen is used as the LCS
+  uint8_t cmdlen_1 = ~cmdlen + 1;       //calculating the two's complement of cmdlen is used as the LCS
   Wire.write(cmdlen_1);		        //LCS        
   Wire.write(PN532_HOSTTOPN532);        //TFI 
 
@@ -405,7 +427,7 @@ void PN532::sendFrame(uint8_t* cmd, uint8_t cmdlen, boolean debug)
     }
   }
 
-  uint8_t checksum_1= ~checksum;      
+  uint8_t checksum_1= ~checksum + 1;      
   
   Wire.write(checksum_1);             //DCS
   Wire.write(PN532_POSTAMBLE); 
@@ -483,7 +505,7 @@ uint32_t PN532::initiatorTxRxData(uint8_t *DataOut,
 uint32_t PN532::configurePeerAsTarget(uint8_t type, boolean debug)
 {
     static const uint8_t npp_client[44] = { PN532_TGINITASTARGET,
-                             0x00,
+                             0x00, 
                              0x00, 0x00, //SENS_RES
                              0x00, 0x00, 0x00, //NFCID1
                              0x00, //SEL_RES
@@ -499,20 +521,22 @@ uint32_t PN532::configurePeerAsTarget(uint8_t type, boolean debug)
                              };
     
     static const uint8_t npp_server[44] = { PN532_TGINITASTARGET,
-                             0x01,
-                             0x00, 0x00, //SENS_RES
-                             0x00, 0x00, 0x00, //NFCID1
-                             0x40, //SEL_RES
+                             0x02, // Mode: DEP only, yes
+                             
+                             0x00, 0x00, 0x00, 0x00, 0x00, 0x40, // MIFARE
 
-                             0x01, 0xFE, 0x0F, 0xBB, 0xBA, 0xA6, 0xC9, 0x89, // POL_RES
-                             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                           
-                             0xFF, 0xFF,
+                             0x01, 0xFE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // FELICA
+                             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // FELICA
+                             0xFF, 0xFF, // FELICA
                             
                              0x01, 0xFE, 0x0F, 0xBB, 0xBA, 0xA6, 0xC9, 0x89, 0x00, 0x00, //NFCID3t: Change this to desired value
 
-                             0x06, 0x46, 0x66, 0x6D, 0x01, 0x01, 0x10, 0x00
+                             0x06, // Gt length: 6 Bytes is MAX
+                             0x46, 0x66, 0x6D, 0x01, 0x01, 0x10, // ATR_RES
+                             0x00 // Tk length
+                             
                              };
+
                              
     if (type == NPP_CLIENT)
     {
