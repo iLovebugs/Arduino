@@ -140,6 +140,8 @@ public:
                                  uint8_t cmdlen, 
                                  uint16_t timeout = 1000, 
                                  boolean debug = false);
+                                 
+ uint32_t getGeneralStatus(boolean debug);                               
 /*
     uint32_t initiatorTxRxData(uint8_t *DataOut, 
                                uint32_t dataSize, 

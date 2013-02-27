@@ -166,7 +166,7 @@ boolean PN532::fetchCheckAck(boolean debug, uint16_t timeout)
         return 0;
      }
     }
-        
+    
     Wire.requestFrom((uint8_t)PN532_I2C_ADDRESS, (uint8_t)7);
     Wire.read();//take away rubbish due to I2C delay
             
@@ -415,7 +415,28 @@ void PN532::sendFrame(uint8_t* cmd, uint8_t cmdlen, boolean debug)
   }
 
     
+      /*
+     Wire.endTransmission();  // testing 2013-02-27
   
+  for (uint8_t i=0; i<cmdlen-1; i++) {
+    Wire.beginTransmission(PN532_I2C_ADDRESS);  // testing 2013-02-27
+    Wire.write(cmd[i]);  //PD0...PDN
+    Wire.endTransmission();  // testing 2013-02-27    
+    checksum += cmd[i];
+    
+
+    if (debug) 
+    {
+      Serial.print(F(" 0x")); 
+      Serial.print(cmd[i], HEX);
+    }
+  }
+
+  uint8_t checksum_1= ~checksum + 1;      
+  
+  Wire.beginTransmission(PN532_I2C_ADDRESS);  // testing 2013-02-27
+     */  
+     
   for (uint8_t i=0; i<cmdlen-1; i++) {
     Wire.write(cmd[i]);                //PD0...PDN
     checksum += cmd[i];  
@@ -564,6 +585,12 @@ uint32_t PN532::configurePeerAsTarget(uint8_t type, boolean debug)
     PN532_CMD_RESPONSE *response = (PN532_CMD_RESPONSE *) pn532_packetbuffer;
     return fetchResponse(PN532_TGINITASTARGET, response, debug);
 }
+
+
+
+
+
+
 
 /*
 uint32_t PN532::getTargetStatus(uint8_t *DataIn)
