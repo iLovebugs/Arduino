@@ -115,8 +115,8 @@ public:
     PN532(uint8_t irq, uint8_t reset);
 
     void initializeReader();
-    uint32_t SAMConfig(boolean debug);    
-    uint32_t getFirmwareVersion(boolean debug);
+    uint32_t SAMConfig();    
+    uint32_t getFirmwareVersion();
     
     /*
     uint32_t readPassiveTargetID(uint8_t cardbaudrate);
@@ -136,27 +136,25 @@ public:
 
     uint32_t configurePeerAsInitiator(uint8_t baudrate);
  */   
-    uint32_t configurePeerAsTarget(uint8_t type, boolean debug); 
+    uint32_t configurePeerAsTarget(uint8_t type); 
  /* 
     uint32_t getTargetStatus(uint8_t *response);
 */
     uint32_t sendCommandCheckAck(uint8_t *cmd, 
                                  uint8_t cmdlen, 
-                                 uint16_t timeout = 1000, 
-                                 boolean debug = false);
+                                 uint16_t timeout = 1000,
+                                 boolean debug = true);
                                  
- uint32_t getGeneralStatus(boolean debug);                               
+ uint32_t getGeneralStatus();                               
 /*
     uint32_t initiatorTxRxData(uint8_t *DataOut, 
                                uint32_t dataSize, 
-                               uint8_t *response,
-                               boolean debug = false);
+                               uint8_t *response);
    */
     uint32_t targetTxData(uint8_t *DataOut, 
-                          uint32_t dataSize,
-                          boolean debug = false);
+                          uint32_t dataSize);
                                                          
-    uint32_t targetRxData(uint8_t *response, boolean debug = false);  
+    uint32_t targetRxData(uint8_t *response);  
     /*
     boolean isTargetReleasedError(uint32_t result);   
    
@@ -164,11 +162,11 @@ public:
 private:
     uint8_t _irq, _reset;
     void sleepArduino();
-    boolean fetchCheckAck(boolean debug = false, uint16_t timeout = 1000);
+    boolean fetchCheckAck(uint16_t timeout = 1000);
     uint8_t checkDataAvailable(void);
-    uint32_t fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *reponse, boolean debug = false);
-    void fetchData(uint8_t* buff, uint16_t timeout = 1000, boolean debug = false);
-    void sendFrame(uint8_t* cmd, uint8_t cmdlen, boolean debug = false);
+    uint32_t fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *reponse);
+    void fetchData(uint8_t* buff, uint16_t timeout = 1000); //debugg=?
+    void sendFrame(uint8_t* cmd, uint8_t cmdlen);
     void wiresend(uint8_t c);
     uint8_t wirerecv(void);
 };

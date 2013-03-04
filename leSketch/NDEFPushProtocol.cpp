@@ -12,9 +12,9 @@ NDEFPushProtocol::~NDEFPushProtocol()
 // Har flyttat hit från ino filen
 uint32_t NDEFPushProtocol::createNDEFShortRecord(uint8_t *message, uint8_t payloadLen, uint8_t *&NDEFMessage)
 {
-   //Serial.print("Message: ");
-   //Serial.println((char *)message);
-   uint8_t * NDEFMessageHdr = ALLOCATE_HEADER_SPACE(NDEFMessage, NDEF_SHORT_RECORD_MESSAGE_HDR_LEN);
+   Serial.print("Message: ");
+   Serial.println((char *)message);
+   /*uint8_t * NDEFMessageHdr = ALLOCATE_HEADER_SPACE(NDEFMessage, NDEF_SHORT_RECORD_MESSAGE_HDR_LEN);
    
    
    //We need to create a NDEF header, following existing standards.
@@ -34,7 +34,8 @@ uint32_t NDEFPushProtocol::createNDEFShortRecord(uint8_t *message, uint8_t paylo
    //Serial.print("NDEF Message: ");
    //Serial.println((char *)NDEFMessage);   
    NDEFMessage = NDEFMessageHdr; // ??
-   return (payloadLen + NDEF_SHORT_RECORD_MESSAGE_HDR_LEN);   
+   return (payloadLen + NDEF_SHORT_RECORD_MESSAGE_HDR_LEN); */
+   return 1;  
 }
 
 // Har flyttat hit från ino filen

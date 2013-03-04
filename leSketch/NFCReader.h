@@ -47,8 +47,8 @@ class NFCReader {
 
 public:
    virtual void initializeReader() = 0;
-   virtual uint32_t SAMConfig(boolean debug) = 0;
-   virtual uint32_t getFirmwareVersion(boolean debug) = 0;
+   virtual uint32_t SAMConfig() = 0;
+   virtual uint32_t getFirmwareVersion() = 0;
    /*
    virtual uint32_t readPassiveTargetID(uint8_t cardbaudrate) = 0;
    virtual uint32_t authenticateBlock(	uint8_t cardnumber, //1 or 2
@@ -67,7 +67,7 @@ public:
    
    virtual uint32_t configurePeerAsInitiator(uint8_t baudrate) = 0;
  */  
-   virtual uint32_t configurePeerAsTarget(uint8_t type, boolean debug) = 0;   
+   virtual uint32_t configurePeerAsTarget(uint8_t type) = 0;   
  /* 
    
    virtual uint32_t initiatorTxRxData(uint8_t *DataOut, 
@@ -75,15 +75,15 @@ public:
                                        uint8_t *response,
                                        boolean debug = false) = 0;
    */
-   virtual uint32_t targetRxData(uint8_t *response, boolean debug = false) = 0;
-   virtual uint32_t targetTxData(uint8_t *DataOut, uint32_t dataSize, boolean debug = false) = 0;                      
+   virtual uint32_t targetRxData(uint8_t *response) = 0;
+   virtual uint32_t targetTxData(uint8_t *DataOut, uint32_t dataSize) = 0;                      
      /*                                           
    virtual uint32_t getTargetStatus(uint8_t *statusOut) = 0;
                  */    
 	 virtual uint32_t sendCommandCheckAck(uint8_t *cmd, 
                               uint8_t cmdlen,                               
                               uint16_t timeout = 1000,
-                              boolean debug = false) = 0;	
+                              boolean debug = true) = 0;	
    /*
    virtual boolean isTargetReleasedError(uint32_t result) = 0;   
       */
