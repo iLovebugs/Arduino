@@ -58,7 +58,7 @@ public:
    
    uint32_t openNPPServerLink(boolean debug = false);
    uint32_t closeNPPServerLink();
-      
+     
    uint32_t openNPPClientLink(boolean debug = false);
    uint32_t closeNPPClientLink();
    

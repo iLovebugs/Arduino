@@ -22,7 +22,7 @@ uint32_t NFCLinkLayer::openNPPClientLink(boolean debug)
    {
       Serial.println(F("Opening NPP Client Link."));
    }
-   uint32_t result = _nfcReader->configurePeerAsTarget(NPP_CLIENT);
+   uint32_t result = _nfcReader->configurePeerAsTarget(NPP_CLIENT, debug);
 
    if (IS_ERROR(result))
    {
@@ -89,7 +89,7 @@ uint32_t NFCLinkLayer::openNPPServerLink(boolean debug)
       Serial.println(F("Opening Server Link."));
    }
    
-   result = _nfcReader->configurePeerAsTarget(NPP_CLIENT);
+   result = _nfcReader->configurePeerAsTarget(NPP_CLIENT, debug);
    if (IS_ERROR(result))
    {
        return result;
@@ -128,7 +128,7 @@ uint32_t NFCLinkLayer::openNPPServerLink(boolean debug)
 
    return RESULT_SUCCESS;
 }
-
+/*
 uint32_t NFCLinkLayer::closeNPPServerLink() 
 {
    uint8_t DataIn[64];
@@ -150,7 +150,8 @@ uint32_t NFCLinkLayer::closeNPPServerLink()
    //Serial.println(F("Recieved disconnect Message."));
    
    return result;
-}
+}*/
+
 
 uint32_t NFCLinkLayer::serverLinkRxData(uint8_t *&Data, boolean debug)
 {

@@ -30,14 +30,39 @@ PN532::PN532(uint8_t irq, uint8_t reset)
     pinMode(_reset, OUTPUT);
 }
 
+/************** high level functions ************/
+
 //Initializes the PN532
 void PN532::initializeReader() 
 {
   Wire.begin(); // Joining I2C buss as master
 }
 
+uint32_t PN532::SAMConfig(boolean debug) 
+{
+    if(debug){
+      Serial.println("<SAMconfig>: Creating SAMconfig message");
+    }
+    
+    pn532_packetbuffer[0] = PN532_SAMCONFIGURATION;
+    pn532_packetbuffer[1] = 0x01; // normal mode;
+    pn532_packetbuffer[2] = 0x14; // timeout 50ms * 20 = 1 second
+    pn532_packetbuffer[3] = 0x01; // use IRQ pin!
+    
+    uint32_t result = sendCommandCheckAck(pn532_packetbuffer, 4, 1000, debug);
 
-void PN532::getFirmwareVersion(boolean debug) 
+    if (IS_ERROR(result)) 
+    {
+        Serial.println("SAMConfig: SEND_COMMAND_TX_TIMEOUT_ERROR");
+        return result;
+    }
+
+    // read data packet
+    PN532_CMD_RESPONSE *response = (PN532_CMD_RESPONSE *) pn532_packetbuffer;
+    return fetchResponse(PN532_SAMCONFIGURATION, response, debug);
+}
+
+uint32_t PN532::getFirmwareVersion(boolean debug) 
 {
     uint32_t versiondata;
 
@@ -45,14 +70,14 @@ void PN532::getFirmwareVersion(boolean debug)
 
     if (IS_ERROR(sendCommandCheckAck(pn532_packetbuffer, 1,1000,debug))) 
     {
-        return;
+        return CONNECTION_ERROR;
     }
 
     // read response Packet
     PN532_CMD_RESPONSE *response = (PN532_CMD_RESPONSE *) pn532_packetbuffer;
     if (IS_ERROR(fetchResponse(PN532_FIRMWAREVERSION, response , debug))) // bytt till fetchResponse, fungerar det?
     {
-       return;
+       return CONNECTION_ERROR;
     }
     
     //response->printResponse();
@@ -75,8 +100,11 @@ void PN532::getFirmwareVersion(boolean debug)
     Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC);
     Serial.print('.'); 
     Serial.println((versiondata>>8) & 0xFF, DEC);
-    Serial.print("Supports "); Serial.println(versiondata & 0xFF, HEX);    
+    Serial.print("Supports "); Serial.println(versiondata & 0xFF, HEX); 
+ 
+     return versiondata;   
   }
+  
 uint32_t PN532::getGeneralStatus(boolean debug){
   
     pn532_packetbuffer[0] = PN532_GETGENERALSTATUS;
@@ -93,6 +121,145 @@ uint32_t PN532::getGeneralStatus(boolean debug){
     PN532_CMD_RESPONSE *response = (PN532_CMD_RESPONSE *) pn532_packetbuffer;
     return fetchResponse(PN532_SAMCONFIGURATION, response, debug);
 }
+
+uint32_t PN532::configurePeerAsTarget(uint8_t type, boolean debug)
+{
+    static const uint8_t npp_client[44] = { PN532_TGINITASTARGET,
+                             0x00, 
+                             0x00, 0x00, //SENS_RES
+                             0x00, 0x00, 0x00, //NFCID1
+                             0x00, //SEL_RES
+
+                             0x01, 0xFE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // POL_RES
+                             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                           
+                             0x00, 0x00,
+                            
+                             0x01, 0xFE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //NFCID3t: Change this to desired value
+
+                             0x06, 0x46, 0x66, 0x6D, 0x01, 0x01, 0x10, 0x00
+                             };
+    
+    static const uint8_t npp_server[44] = { PN532_TGINITASTARGET,
+                             0x02, // Mode: DEP only, yes
+                             
+                             0x00, 0x00, 0x00, 0x00, 0x00, 0x40, // MIFARE
+
+                             0x01, 0xFE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // FELICA
+                             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // FELICA
+                             0xFF, 0xFF, // FELICA
+                            
+                             0x01, 0xFE, 0x0F, 0xBB, 0xBA, 0xA6, 0xC9, 0x89, 0x00, 0x00, //NFCID3t: Change this to desired value
+
+                             0x06, // Gt length: 6 Bytes is MAX
+                             0x46, 0x66, 0x6D, 0x01, 0x01, 0x10, // ATR_RES
+                             0x00 // Tk length
+                             
+                             };
+
+                             
+    if (type == NPP_CLIENT)
+    {
+       for(uint8_t iter = 0;iter < 44;iter++)
+       {
+          pn532_packetbuffer[iter] = npp_client[iter];
+       }
+    }
+    else if (type == NPP_SERVER)
+    {
+       for(uint8_t iter = 0;iter < 44;iter++)
+       {
+          pn532_packetbuffer[iter] = npp_server[iter];
+       }
+    }
+    
+    uint32_t result;
+    result = sendCommandCheckAck(pn532_packetbuffer, 44, 2000, debug);
+   
+    if (IS_ERROR(result))
+    {
+        return result;
+    }
+    
+    sleepArduino(); // Sleep until phone wakes up the PN532
+        
+    PN532_CMD_RESPONSE *response = (PN532_CMD_RESPONSE *) pn532_packetbuffer;
+    return fetchResponse(PN532_TGINITASTARGET, response, debug);
+}
+
+uint32_t PN532::targetRxData(uint8_t *DataIn, boolean debug)
+{
+    ///////////////////////////////////// Receiving from Initiator ///////////////////////////
+    pn532_packetbuffer[0] = PN532_TGGETDATA;
+    uint32_t result = sendCommandCheckAck(pn532_packetbuffer, 1, 1000, debug);
+    if (IS_ERROR(result)) {
+        //Serial.println(F("SendCommandCheck Ack Failed"));
+        return NFC_READER_COMMAND_FAILURE;
+    }
+    
+    // read data packet
+    PN532_CMD_RESPONSE *response = (PN532_CMD_RESPONSE *) pn532_packetbuffer;
+    
+    result = fetchResponse(PN532_TGGETDATA, response, debug);
+    
+    if (IS_ERROR(result))
+    {
+       return NFC_READER_RESPONSE_FAILURE;
+    }
+ 
+    if (response->data[0] == 0x00) // börjar NDEF message med 0x00?
+    {
+       uint32_t ret_len = response->len - 2; // ändrat
+       memcpy(DataIn, &(response->data[1]), ret_len);
+       return ret_len;
+    }
+    
+    return (GEN_ERROR | response->data[0]);
+}
+
+
+
+uint32_t PN532::targetTxData(uint8_t *DataOut, uint32_t dataSize, boolean debug)
+{
+    ///////////////////////////////////// Sending to Initiator ///////////////////////////
+    pn532_packetbuffer[0] = PN532_TGSETDATA;
+    uint8_t commandBufferSize = (1 + dataSize);
+    for(uint8_t iter=(1+0);iter < commandBufferSize; ++iter)
+    {
+        pn532_packetbuffer[iter] = DataOut[iter-1]; //pack the data to send to target
+    }
+    
+    uint32_t result = sendCommandCheckAck(pn532_packetbuffer, commandBufferSize, 1000, debug);
+    if (IS_ERROR(result)) {
+        Serial.println(F("TX_Target Command Failed."));
+        return result;
+    }
+    
+    
+    // read data packet
+    PN532_CMD_RESPONSE *response = (PN532_CMD_RESPONSE *) pn532_packetbuffer;
+    
+    result = fetchResponse(PN532_TGSETDATA, response);
+    if (IS_ERROR(result))
+    {
+       return result;
+    }
+    
+    if (debug)
+    {
+       response->printResponse();
+    }
+    
+    if (response->data[0] != 0x00)
+    {
+       return (GEN_ERROR | response->data[0]);
+    }
+    return RESULT_SUCCESS; //No error
+}
+
+/********** LARGE CHUNK CUT OUT, placed at file bottom  **********/
+
+/************** mid level functions ***********/
 
 // default timeout of one second
 uint32_t PN532::sendCommandCheckAck(uint8_t *cmd, 
@@ -120,260 +287,6 @@ uint32_t PN532::sendCommandCheckAck(uint8_t *cmd,
       
     return RESULT_SUCCESS; // ack'd command
 }
-
-uint32_t PN532::SAMConfig(boolean debug) 
-{
-    if(debug){
-      Serial.println("<SAMconfig>: Creating SAMconfig message");
-    }
-    
-    pn532_packetbuffer[0] = PN532_SAMCONFIGURATION;
-    pn532_packetbuffer[1] = 0x01; // normal mode;
-    pn532_packetbuffer[2] = 0x14; // timeout 50ms * 20 = 1 second
-    pn532_packetbuffer[3] = 0x01; // use IRQ pin!
-    
-    uint32_t result = sendCommandCheckAck(pn532_packetbuffer, 4, 1000, debug);
-
-    if (IS_ERROR(result)) 
-    {
-        Serial.println("SAMConfig: SEND_COMMAND_TX_TIMEOUT_ERROR");
-        return result;
-    }
-
-    // read data packet
-    PN532_CMD_RESPONSE *response = (PN532_CMD_RESPONSE *) pn532_packetbuffer;
-    return fetchResponse(PN532_SAMCONFIGURATION, response, debug);
-}
-/********** LARGE CHUNK CUT OUT, placed at file bottom  **********/
-
-/************** high level functions */
-
-
-boolean PN532::fetchCheckAck(boolean debug, uint16_t timeout)
-{
-    //Create buffer of size 6 to recieve an ack
-    uint8_t ackbuff[6];
-
-    
-    uint16_t timer = 0;
-    //Wait timeout for PN532 to send the ack, else timeout
-    while ((checkDataAvailable()) == PN532_I2C_NO_DATA){
-      delay(10);
-      timer+=10;
-      
-      if (timer > timeout){
-        Serial.println("<fetchCheckAck>: Timeout");
-        return 0;
-     }
-    }
-    
-    Wire.requestFrom((uint8_t)PN532_I2C_ADDRESS, (uint8_t)7);
-    Wire.read();//take away rubbish due to I2C delay
-            
-    if(debug)
-      Serial.println("<fetchCheckAck>: Data recieved from PN532:  ");
-      
-    for (uint16_t i=0; i<7; i++){
-        delay(1);
-        ackbuff[i] = Wire.read();
-        
-        if (debug)
-        {         
-            Serial.print(F(" 0x"));
-            Serial.print(ackbuff[i], HEX);            
-        }
-    }
-    
-    if(debug){
-      Serial.println();   
-      if(0 == strncmp((char *)ackbuff, (char *)pn532ack, 6))
-      Serial.println("<fetchCheckAck>: Ack recieved");
-      Serial.println();
-    }
-      
-    return (0 == strncmp((char *)ackbuff, (char *)pn532ack, 6));
-}
-
-/************** mid level functions */
-
-
-//Ers�tter helt readspistatus, i I2C r�cker det med att titta p� IRQ linan f�r att av�gra om PN532 �r upptagen. What? /jonas
-uint8_t PN532::checkDataAvailable(void) {
-  uint8_t x = digitalRead(_irq);
-  
-  if (x == 1)
-    return PN532_I2C_NO_DATA;
-  else
-    return PN532_I2C_DATA_TO_FETCH;
-}
-
-
-
-//Bryter isär svaret fr�n PN532 
-uint32_t PN532::fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *response, boolean debug) 
-{
-  
-    if(debug)
-      Serial.println("<fetchResponse>");
-
-    uint8_t calc_checksum = 0;
-    uint8_t ret_checksum;
-        
-    //response->header[0] = response->header[1] = 0xAA;  Useless?
-    
-    uint32_t retVal = RESULT_SUCCESS;
-      
-    
-    //Fetch the data
-    fetchData((uint8_t *)response, 1000 ,debug);
-    
-    /* Won't work
-    // Check if an error frame was fetched
-    if(0 == strncmp((char *)response, (char *)pn532error, 8)){
-      retVal = SEND_COMMAND_RX_ERROR_FRAME;
-      
-        if(debug){
-          Serial.println("<fetchResponse>: Error frame recieved");
-        }
-      return retVal;
-    }*/
-    
-    retVal = response->verifyResponse(cmdCode) ? RESULT_SUCCESS : INVALID_RESPONSE;      
-    
-    //Dont get this part
-    if (RESULT_OK(retVal)){  
-      
-      calc_checksum += response->direction;
-      calc_checksum += response->responseCode;
-      
-      // Add data fields to checksum
-      // 2 is removed since direction (TFI) and responsCode is included in LEN
-      //Never run for frames with len < 3, e.g response to a SAMconfig()
-        uint8_t i = 0;
-        for ( i; i < response -> len -2 ; i++){
-            calc_checksum +=  response->data[i];
-         }
-                  
-       // Find Packet Data Checksum. Will be pointed to after the above loop
-       uint8_t ret_checksum = response->data[i++];
-         
-        
-        // Check if the checksums are correct
-         if (((uint8_t)(calc_checksum + ret_checksum)) != 0x00) 
-         {
-            Serial.println(F("<fetchResponse>: Invalid Checksum recievied."));
-            retVal = INVALID_CHECKSUM_RX;
-         }         
-         
-        // Find Postamble
-         uint8_t postamble = response->data[i];         
-                 
-         
-         if (RESULT_OK(retVal) && postamble != 0x00) 
-         {
-             retVal = INVALID_POSTAMBLE;
-             Serial.println(F("Invalid Postamble."));
-         }       
-    }
-    
-   
-    if (debug){
-      response->printResponse();
-      
-      Serial.println();
-      Serial.print(F("<fetchResponse>: Calculated Checksum: 0x"));
-      Serial.println(calc_checksum, HEX);
-       
-    }
-
-    return retVal;
-}
-
-void PN532_CMD_RESPONSE::printResponse(){
-    Serial.println();
-    Serial.println("<fetchResponse>: Response");
-    Serial.print("Preamble: 0x");
-    Serial.println(preamble, HEX);
-    Serial.print("Startcode: 0x");
-    Serial.print(header[0], HEX);
-    Serial.print(" 0x");
-    Serial.println(header[1], HEX);
-    Serial.print("Len: 0x");
-    Serial.println(len, HEX);
-    Serial.print("LCS: 0x");
-    Serial.println(len_chksum, HEX);
-    Serial.print("Direction: 0x");
-    Serial.println(direction, HEX);
-    Serial.print("Response Command: 0x");
-    Serial.println(responseCode, HEX);
-    
-    Serial.println("Data: ");
-    
-    uint8_t i;
-    for (i = 0; i < len-2; ++i){
-        Serial.print(F("0x"));
-        Serial.print(data[i], HEX);
-        Serial.print(F(" "));
-    } 
-  
-      Serial.println();
-      Serial.print("Returned Checksum: 0x");
-      Serial.println(data[i++], HEX); 
-      Serial.print("Postamble: 0x");   
-      Serial.println(data[i], HEX);
-}
-
-
-
-void PN532::fetchData(uint8_t* buff, uint16_t timeout, boolean debug) 
-{    
-    if (debug) 
-    {
-        Serial.println("<fetchData>");
-    }    
-    //TODO add a timeout
-      uint16_t time = 0;
-      while(checkDataAvailable() == PN532_I2C_NO_DATA){        
-        Serial.println("<fetchData>: Nothing to fetch");
-        delay(10);
-      }
-    
-    //Fetches a predefined Chunk of data.
-    //Will continue to fetch chuks aslong as PN532 has something to send
-    while(checkDataAvailable() == PN532_I2C_DATA_TO_FETCH){
-      Serial.println("<fetchData>: Fetching new chunk of data");
-      Wire.requestFrom((uint8_t)PN532_I2C_ADDRESS, (uint8_t)(CHUNK_OF_DATA+1));
-      delay(10);
-      Wire.read();//take away rubbish due to I2C delay
-    }
-    
-    //Changed from n = argument set at 150 to actual size of read data..    
-    uint8_t n = Wire.available();
-    
-    if(debug){        
-      Serial.print("<fetchData>: ");
-      Serial.print(n);
-      Serial.println(" bytes fetched");
-      Serial.println("<fetchData>: Data recieved from PN532: ");
-    }
-    
-    for (uint16_t i=0; i<n; i++){
-        delay(1);
-        buff[i] = Wire.read();
-        
-        if (debug){            
-            Serial.print(F(" 0x"));
-            Serial.print(buff[i], HEX);
-        }
-    }
-
-    if (debug){
-        Serial.println();
-        Serial.println("<fetchData>: data fetched");
-    }   
-    
-}
-
 
 void PN532::sendFrame(uint8_t* cmd, uint8_t cmdlen, boolean debug)
 {
@@ -467,6 +380,214 @@ void PN532::sendFrame(uint8_t* cmd, uint8_t cmdlen, boolean debug)
   
   Serial.println("<sendFrame>: Command sent");
 }
+boolean PN532::fetchCheckAck(boolean debug, uint16_t timeout)
+{
+    //Create buffer of size 6 to recieve an ack
+    uint8_t ackbuff[6];
+
+    
+    uint16_t timer = 0;
+    //Wait timeout for PN532 to send the ack, else timeout
+    while ((checkDataAvailable()) == PN532_I2C_NO_DATA){
+      delay(10);
+      timer+=10;
+      
+      if (timer > timeout){
+        Serial.println("<fetchCheckAck>: Timeout");
+        return 0;
+     }
+    }
+    
+    Wire.requestFrom((uint8_t)PN532_I2C_ADDRESS, (uint8_t)7);
+    Wire.read();//take away rubbish due to I2C delay
+            
+    if(debug)
+      Serial.println("<fetchCheckAck>: Data recieved from PN532:  ");
+      
+    for (uint16_t i=0; i<7; i++){
+        delay(1);
+        ackbuff[i] = Wire.read();
+        
+        if (debug)
+        {         
+            Serial.print(F(" 0x"));
+            Serial.print(ackbuff[i], HEX);            
+        }
+    }
+    
+    if(debug){
+      Serial.println();   
+      if(0 == strncmp((char *)ackbuff, (char *)pn532ack, 6))
+      Serial.println("<fetchCheckAck>: Ack recieved");
+      Serial.println();
+    }
+      
+    return (0 == strncmp((char *)ackbuff, (char *)pn532ack, 6));
+}
+
+
+//Bryter isär svaret fr�n PN532 
+uint32_t PN532::fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *response, boolean debug) 
+{
+  
+    if(debug)
+      Serial.println("<fetchResponse>");
+
+    uint8_t calc_checksum = 0;
+    uint8_t ret_checksum;
+        
+    //response->header[0] = response->header[1] = 0xAA;  Useless?
+    
+    uint32_t retVal = RESULT_SUCCESS;
+      
+    
+    //Fetch the data
+    fetchData((uint8_t *)response, 1000 ,debug);
+    
+    /* Won't work
+    // Check if an error frame was fetched
+    if(0 == strncmp((char *)response, (char *)pn532error, 8)){
+      retVal = SEND_COMMAND_RX_ERROR_FRAME;
+      
+        if(debug){
+          Serial.println("<fetchResponse>: Error frame recieved");
+        }
+      return retVal;
+    }*/
+    
+    retVal = response->verifyResponse(cmdCode) ? RESULT_SUCCESS : INVALID_RESPONSE;      
+    
+    //Dont get this part
+    if (RESULT_OK(retVal)){  
+      
+      calc_checksum += response->direction;
+      calc_checksum += response->responseCode;
+      
+      // Add data fields to checksum
+      // 2 is removed since direction (TFI) and responsCode is included in LEN
+      //Never run for frames with len < 3, e.g response to a SAMconfig()
+        uint8_t i = 0;
+        for ( i; i < response -> len -2 ; i++){
+            calc_checksum +=  response->data[i];
+         }
+                  
+       // Find Packet Data Checksum. Will be pointed to after the above loop
+       uint8_t ret_checksum = response->data[i++];
+         
+        
+        // Check if the checksums are correct
+         if (((uint8_t)(calc_checksum + ret_checksum)) != 0x00) 
+         {
+            Serial.println(F("<fetchResponse>: Invalid Checksum recievied."));
+            retVal = INVALID_CHECKSUM_RX;
+         }         
+         
+        // Find Postamble
+         uint8_t postamble = response->data[i];         
+                 
+         
+         if (RESULT_OK(retVal) && postamble != 0x00) 
+         {
+             retVal = INVALID_POSTAMBLE;
+             Serial.println(F("Invalid Postamble."));
+         }       
+    }
+    
+   
+    if (debug){
+      response->printResponse();
+      
+      Serial.println();
+      Serial.print(F("<fetchResponse>: Calculated Checksum: 0x"));
+      Serial.println(calc_checksum, HEX);
+       
+    }
+
+    return retVal;
+}
+
+void PN532::fetchData(uint8_t* buff, uint16_t timeout, boolean debug) 
+{    
+    if (debug) 
+    {
+        Serial.println("<fetchData>");
+    }    
+    //TODO add a timeout
+      uint16_t time = 0;
+      while(checkDataAvailable() == PN532_I2C_NO_DATA){        
+        Serial.println("<fetchData>: Nothing to fetch");
+        delay(10);
+      }
+    
+    //Fetches a predefined Chunk of data.
+    //Will continue to fetch chuks aslong as PN532 has something to send
+    while(checkDataAvailable() == PN532_I2C_DATA_TO_FETCH){
+      Serial.println("<fetchData>: Fetching new chunk of data");
+      Wire.requestFrom((uint8_t)PN532_I2C_ADDRESS, (uint8_t)(CHUNK_OF_DATA+1));
+      delay(10);
+      Wire.read();//take away rubbish due to I2C delay
+    }
+    
+    //Changed from n = argument set at 150 to actual size of read data..    
+    uint8_t n = Wire.available();
+    
+    if(debug){        
+      Serial.print("<fetchData>: ");
+      Serial.print(n);
+      Serial.println(" bytes fetched");
+      Serial.println("<fetchData>: Data recieved from PN532: ");
+    }
+    
+    for (uint16_t i=0; i<n; i++){
+        delay(1);
+        buff[i] = Wire.read();
+        
+        if (debug){            
+            Serial.print(F(" 0x"));
+            Serial.print(buff[i], HEX);
+        }
+    }
+
+    if (debug){
+        Serial.println();
+        Serial.println("<fetchData>: data fetched");
+    }       
+}
+
+/************** low level functions ***********/
+
+// Puts Arduino to sleep
+void PN532::sleepArduino()
+{    
+    // Enable sleep mode
+    sleep_enable();
+    
+    Serial.println("Going to Sleep\n");
+    delay(100); // delay so that debug message can be printed before the MCU goes to sleep
+    
+    // Puts the device to sleep.
+    sleep_mode();
+    Serial.println("Woke up");
+    
+    // Program continues execution HERE
+    // when an interrupt is recieved.
+
+    // Disable sleep mode
+    sleep_disable();
+    
+    power_all_enable();
+}
+
+//Ers�tter helt readspistatus, i I2C r�cker det med att titta p� IRQ linan f�r att av�gra om PN532 �r upptagen. What? /jonas
+uint8_t PN532::checkDataAvailable(void) {
+  uint8_t x = digitalRead(_irq);
+  
+  if (x == 1)
+    return PN532_I2C_NO_DATA;
+  else
+    return PN532_I2C_DATA_TO_FETCH;
+}
+
 
 /******* PN532_CMD_RESPONSE methods */
 
@@ -479,6 +600,39 @@ boolean PN532_CMD_RESPONSE::verifyResponse(uint32_t cmdCode)
             (cmdCode + 1) == responseCode);
 }
 
+void PN532_CMD_RESPONSE::printResponse(){
+    Serial.println();
+    Serial.println("<fetchResponse>: Response");
+    Serial.print("Preamble: 0x");
+    Serial.println(preamble, HEX);
+    Serial.print("Startcode: 0x");
+    Serial.print(header[0], HEX);
+    Serial.print(" 0x");
+    Serial.println(header[1], HEX);
+    Serial.print("Len: 0x");
+    Serial.println(len, HEX);
+    Serial.print("LCS: 0x");
+    Serial.println(len_chksum, HEX);
+    Serial.print("Direction: 0x");
+    Serial.println(direction, HEX);
+    Serial.print("Response Command: 0x");
+    Serial.println(responseCode, HEX);
+    
+    Serial.println("Data: ");
+    
+    uint8_t i;
+    for (i = 0; i < len-2; ++i){
+        Serial.print(F("0x"));
+        Serial.print(data[i], HEX);
+        Serial.print(F(" "));
+    } 
+  
+      Serial.println();
+      Serial.print("Returned Checksum: 0x");
+      Serial.println(data[i++], HEX); 
+      Serial.print("Postamble: 0x");   
+      Serial.println(data[i], HEX);
+}
 
 
 /********** CUT OUT **********
@@ -522,77 +676,6 @@ uint32_t PN532::initiatorTxRxData(uint8_t *DataOut,
     return RESULT_SUCCESS; //No error
 }
 
-*/
-uint32_t PN532::configurePeerAsTarget(uint8_t type, boolean debug)
-{
-    static const uint8_t npp_client[44] = { PN532_TGINITASTARGET,
-                             0x00, 
-                             0x00, 0x00, //SENS_RES
-                             0x00, 0x00, 0x00, //NFCID1
-                             0x00, //SEL_RES
-
-                             0x01, 0xFE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // POL_RES
-                             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                           
-                             0x00, 0x00,
-                            
-                             0x01, 0xFE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //NFCID3t: Change this to desired value
-
-                             0x06, 0x46, 0x66, 0x6D, 0x01, 0x01, 0x10, 0x00
-                             };
-    
-    static const uint8_t npp_server[44] = { PN532_TGINITASTARGET,
-                             0x02, // Mode: DEP only, yes
-                             
-                             0x00, 0x00, 0x00, 0x00, 0x00, 0x40, // MIFARE
-
-                             0x01, 0xFE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // FELICA
-                             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // FELICA
-                             0xFF, 0xFF, // FELICA
-                            
-                             0x01, 0xFE, 0x0F, 0xBB, 0xBA, 0xA6, 0xC9, 0x89, 0x00, 0x00, //NFCID3t: Change this to desired value
-
-                             0x06, // Gt length: 6 Bytes is MAX
-                             0x46, 0x66, 0x6D, 0x01, 0x01, 0x10, // ATR_RES
-                             0x00 // Tk length
-                             
-                             };
-
-                             
-    if (type == NPP_CLIENT)
-    {
-       for(uint8_t iter = 0;iter < 44;iter++)
-       {
-          pn532_packetbuffer[iter] = npp_client[iter];
-       }
-    }
-    else if (type == NPP_SERVER)
-    {
-       for(uint8_t iter = 0;iter < 44;iter++)
-       {
-          pn532_packetbuffer[iter] = npp_server[iter];
-       }
-    }
-    
-    uint32_t result;
-    result = sendCommandCheckAck(pn532_packetbuffer, 44, 2000, debug);
-   
-    if (IS_ERROR(result))
-    {
-        return result;
-    }
-    
-    PN532_CMD_RESPONSE *response = (PN532_CMD_RESPONSE *) pn532_packetbuffer;
-    return fetchResponse(PN532_TGINITASTARGET, response, debug);
-}
-
-
-
-
-
-
-
-/*
 uint32_t PN532::getTargetStatus(uint8_t *DataIn)
 {
     pn532_packetbuffer[0] = PN532_TGTARGETSTATUS;
@@ -611,77 +694,6 @@ uint32_t PN532::getTargetStatus(uint8_t *DataIn)
     
     return 0;
 }
-
-uint32_t PN532::targetRxData(uint8_t *DataIn, boolean debug)
-{
-    ///////////////////////////////////// Receiving from Initiator ///////////////////////////
-    pn532_packetbuffer[0] = PN532_TGGETDATA;
-    uint32_t result = sendCommandCheckAck(pn532_packetbuffer, 1, 1000, debug);
-    if (IS_ERROR(result)) {
-        //Serial.println(F("SendCommandCheck Ack Failed"));
-        return NFC_READER_COMMAND_FAILURE;
-    }
-    
-    // read data packet
-    PN532_CMD_RESPONSE *response = (PN532_CMD_RESPONSE *) pn532_packetbuffer;
-    
-    result = readspicommand(PN532_TGGETDATA, response, debug);
-    
-    if (IS_ERROR(result))
-    {
-       return NFC_READER_RESPONSE_FAILURE;
-    }
- 
-    if (response->data[0] == 0x00)
-    {
-       uint32_t ret_len = response->data_len - 1;
-       memcpy(DataIn, &(response->data[1]), ret_len);
-       return ret_len;
-    }
-    
-    return (GEN_ERROR | response->data[0]);
-}
-
-
-
-uint32_t PN532::targetTxData(uint8_t *DataOut, uint32_t dataSize, boolean debug)
-{
-    ///////////////////////////////////// Sending to Initiator ///////////////////////////
-    pn532_packetbuffer[0] = PN532_TGSETDATA;
-    uint8_t commandBufferSize = (1 + dataSize);
-    for(uint8_t iter=(1+0);iter < commandBufferSize; ++iter)
-    {
-        pn532_packetbuffer[iter] = DataOut[iter-1]; //pack the data to send to target
-    }
-    
-    uint32_t result = sendCommandCheckAck(pn532_packetbuffer, commandBufferSize, 1000, debug);
-    if (IS_ERROR(result)) {
-        Serial.println(F("TX_Target Command Failed."));
-        return result;
-    }
-    
-    
-    // read data packet
-    PN532_CMD_RESPONSE *response = (PN532_CMD_RESPONSE *) pn532_packetbuffer;
-    
-    result = readspicommand(PN532_TGSETDATA, response);
-    if (IS_ERROR(result))
-    {
-       return result;
-    }
-    
-    if (debug)
-    {
-       response->printResponse();
-    }
-    
-    if (response->data[0] != 0x00)
-    {
-       return (GEN_ERROR | response->data[0]);
-    }
-    return RESULT_SUCCESS; //No error
-}
-    
 
 uint32_t PN532::authenticateBlock(uint8_t cardnumber  ,//1 or 2
                                   uint32_t cid , //Card NUID

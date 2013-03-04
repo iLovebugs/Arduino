@@ -6,6 +6,8 @@
 
 #include "Arduino.h"
 #include "NFCReader.h"
+#include <avr/sleep.h>
+#include <avr/power.h>
 
 #define PN532_PREAMBLE 0x00
 #define PN532_STARTCODE1 0x00
@@ -90,7 +92,8 @@ enum READER_ERRORS
     CARD_INACTIVE_ERROR,
     NFCID3_MISMATCH_ERROR,
     OVER_CURRENT_ERROR,
-    DEP_NAD_MISSING,   
+    DEP_NAD_MISSING,
+    CONNECTION_ERROR,   
 };
 
 struct PN532_CMD_RESPONSE {
@@ -107,13 +110,14 @@ struct PN532_CMD_RESPONSE {
    
 };
 
-class PN532 {
+class PN532 : public NFCReader{
 public:
     PN532(uint8_t irq, uint8_t reset);
 
     void initializeReader();
-    uint32_t SAMConfig(boolean debugg);    
-    void getFirmwareVersion(boolean);
+    uint32_t SAMConfig(boolean debug);    
+    uint32_t getFirmwareVersion(boolean debug);
+    
     /*
     uint32_t readPassiveTargetID(uint8_t cardbaudrate);
     uint32_t authenticateBlock(	uint8_t cardnumber, //1 or 2
@@ -147,19 +151,19 @@ public:
                                uint32_t dataSize, 
                                uint8_t *response,
                                boolean debug = false);
-   
+   */
     uint32_t targetTxData(uint8_t *DataOut, 
                           uint32_t dataSize,
                           boolean debug = false);
                                                          
     uint32_t targetRxData(uint8_t *response, boolean debug = false);  
-    
+    /*
     boolean isTargetReleasedError(uint32_t result);   
    
 */
 private:
     uint8_t _irq, _reset;
-
+    void sleepArduino();
     boolean fetchCheckAck(boolean debug = false, uint16_t timeout = 1000);
     uint8_t checkDataAvailable(void);
     uint32_t fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *reponse, boolean debug = false);
