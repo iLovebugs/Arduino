@@ -25,7 +25,7 @@
 
 
 struct PARAMETER_DESCR {
-   union {
+   union { //This field can either be sequence or type
       uint8_t type;
       uint8_t sequence;
    };

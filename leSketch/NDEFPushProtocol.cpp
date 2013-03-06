@@ -14,7 +14,7 @@ uint32_t NDEFPushProtocol::createNDEFShortRecord(uint8_t *message, uint8_t paylo
 {
    Serial.print("Message: ");
    Serial.println((char *)message);
-   /*uint8_t * NDEFMessageHdr = ALLOCATE_HEADER_SPACE(NDEFMessage, NDEF_SHORT_RECORD_MESSAGE_HDR_LEN);
+   uint8_t * NDEFMessageHdr = ALLOCATE_HEADER_SPACE(NDEFMessage, NDEF_SHORT_RECORD_MESSAGE_HDR_LEN);
    
    
    //We need to create a NDEF header, following existing standards.
@@ -33,11 +33,10 @@ uint32_t NDEFPushProtocol::createNDEFShortRecord(uint8_t *message, uint8_t paylo
    memcpy(NDEFMessage, message, payloadLen); //Copies the message, but only payloadLen of it
    //Serial.print("NDEF Message: ");
    //Serial.println((char *)NDEFMessage);   
-   NDEFMessage = NDEFMessageHdr; // ??
-   return (payloadLen + NDEF_SHORT_RECORD_MESSAGE_HDR_LEN); */
-   return 1;  
+   NDEFMessage = NDEFMessageHdr; // NDEFMessage now points to first header byte
+   return (payloadLen + NDEF_SHORT_RECORD_MESSAGE_HDR_LEN); 
 }
-
+/*
 // Har flyttat hit från ino filen
 uint32_t NDEFPushProtocol::retrieveTextPayloadFromShortRecord(uint8_t *NDEFMessage, uint8_t type, uint8_t *&payload, boolean isIDLenPresent)
 {
@@ -195,7 +194,7 @@ uint32_t NDEFPushProtocol::rxNDEFPayload(uint8_t *&data)
     }        
     return result;
 }
-
+*/
 uint32_t NDEFPushProtocol::pushPayload(uint8_t *NDEFMessage, uint32_t length)
 {
     NPP_MESSAGE *nppMessage = (NPP_MESSAGE *) ALLOCATE_HEADER_SPACE(NDEFMessage, NPP_MESSAGE_HDR_LEN);
@@ -214,12 +213,13 @@ uint32_t NDEFPushProtocol::pushPayload(uint8_t *NDEFMessage, uint32_t length)
         Serial.print(buf[i], HEX);
         Serial.print(F(" "));
     }*/
-    uint32_t result = _linkLayer->openNPPClientLink();
+    uint32_t result =  _linkLayer->openNPPClientLink();
   
     if(RESULT_OK(result)) //if connection is error-free
     { 
         result =  _linkLayer->clientLinkTxData((uint8_t *)nppMessage, length + NPP_MESSAGE_HDR_LEN);
-    } 
-    
+    }
+    Serial.println("Link open: "); 
+    Serial.println(RESULT_OK(result));
     return result;       
 }

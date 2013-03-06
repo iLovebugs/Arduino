@@ -8,6 +8,7 @@
 #include <Wire.h>
 
 //#define PN532DEBUG
+#define PN532PRINTRESPONSE
 
 uint8_t pn532ack[] = {0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00};
 uint8_t pn532error[] = {0x00, 0x00, 0xFF, 0x01, 0xFF, 0x7F, 0x81, 0x00};
@@ -139,7 +140,23 @@ uint32_t PN532::configurePeerAsTarget(uint8_t type)
 
                              0x06, 0x46, 0x66, 0x6D, 0x01, 0x01, 0x10, 0x00
                              };
-    
+                             
+    static const uint8_t npp_server[44] = { PN532_TGINITASTARGET,
+                             0x01,
+                             0x00, 0x00, //SENS_RES
+                             0x00, 0x00, 0x00, //NFCID1
+                             0x40, //SEL_RES
+
+                             0x01, 0xFE, 0x0F, 0xBB, 0xBA, 0xA6, 0xC9, 0x89, // POL_RES
+                             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                           
+                             0xFF, 0xFF,
+                            
+                             0x01, 0xFE, 0x0F, 0xBB, 0xBA, 0xA6, 0xC9, 0x89, 0x00, 0x00, //NFCID3t: Change this to desired value
+
+                             0x06, 0x46, 0x66, 0x6D, 0x01, 0x01, 0x10, 0x00
+                             }; 
+    /*
     static const uint8_t npp_server[44] = { PN532_TGINITASTARGET,
                              0x02, // Mode: DEP only, yes
                              
@@ -155,7 +172,7 @@ uint32_t PN532::configurePeerAsTarget(uint8_t type)
                              0x46, 0x66, 0x6D, 0x01, 0x01, 0x10, // ATR_RES
                              0x00 // Tk length
                              
-                             };
+                             };*/
 
                              
     if (type == NPP_CLIENT)
@@ -184,7 +201,9 @@ uint32_t PN532::configurePeerAsTarget(uint8_t type)
     sleepArduino(); // Sleep until phone wakes up the PN532
         
     PN532_CMD_RESPONSE *response = (PN532_CMD_RESPONSE *) pn532_packetbuffer;
-    return fetchResponse(PN532_TGINITASTARGET, response);
+    
+    return fetchResponse(PN532_TGINITASTARGET, response);  
+     
 }
 
 uint32_t PN532::targetRxData(uint8_t *DataIn)
@@ -199,8 +218,8 @@ uint32_t PN532::targetRxData(uint8_t *DataIn)
     
     // read data packet
     PN532_CMD_RESPONSE *response = (PN532_CMD_RESPONSE *) pn532_packetbuffer;
-    
     result = fetchResponse(PN532_TGGETDATA, response);
+    response->printResponse();
     
     if (IS_ERROR(result))
     {
@@ -242,16 +261,18 @@ uint32_t PN532::targetTxData(uint8_t *DataOut, uint32_t dataSize)
     result = fetchResponse(PN532_TGSETDATA, response);
     if (IS_ERROR(result))
     {
+       Serial.println(F("TX_Target Command Response Failed."));
        return result;
     }
     
-    #ifdef PN532DEBUG
+    //#ifdef PN532DEBUG
     
            response->printResponse();
-    #endif
+    //#endif
     
     if (response->data[0] != 0x00)
     {
+       Serial.println(F("Gen Error!."));
        return (GEN_ERROR | response->data[0]);
     }
     return RESULT_SUCCESS; //No error
@@ -471,7 +492,7 @@ uint32_t PN532::fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *response)
     }
     
    
-    #ifdef PN532DEBUG
+    #ifdef PN532PRINTRESPONSE
       response->printResponse();
       
       Serial.println();
@@ -576,7 +597,7 @@ boolean PN532_CMD_RESPONSE::verifyResponse(uint32_t cmdCode)
 }
 
 void PN532_CMD_RESPONSE::printResponse(){
-  #ifdef PN532DEBUG
+  #ifdef PN532PRINTRESPONSE
     Serial.println();
     Serial.println("<fetchResponse>: Response");
     Serial.print("Preamble: 0x");
