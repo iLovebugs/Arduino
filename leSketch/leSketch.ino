@@ -1,8 +1,8 @@
 #include <Wire.h>
-#include "NDEFPushProtocol.h"
-#include "NFCLinkLayer.h"
 #include "PN532.h"
-#include "MemoryFree.h";
+#include "NFCLinkLayer.h"
+#include "NDEFPushProtocol.h"
+#include "MemoryFree.h"
 
 uint8_t wakePin = 2;
 uint8_t _irq = 2;
@@ -13,105 +13,134 @@ PN532 nfc(_irq,_reset);
 NFCLinkLayer linkLayer(&nfc);
 NDEFPushProtocol nppLayer(&linkLayer);
 
-// This message shall be used to rx or tx
+// This message shall be used to rx or tx 
 // NDEF messages it shall never be released
-#define MAX_PKT_HEADER_SIZE 23
-#define MAX_PKT_PAYLOAD_SIZE 6
+#define MAX_PKT_HEADER_SIZE  50
+#define MAX_PKT_PAYLOAD_SIZE 100
 uint8_t rxNDEFMessage[MAX_PKT_HEADER_SIZE + MAX_PKT_PAYLOAD_SIZE];
 uint8_t txNDEFMessage[MAX_PKT_HEADER_SIZE + MAX_PKT_PAYLOAD_SIZE];
-uint8_t *txNDEFMessagePtr = &txNDEFMessage[MAX_PKT_HEADER_SIZE]; //txNDEFMessagePtr now points to first byte of the actual message
-uint8_t *rxNDEFMessagePtr = &rxNDEFMessage[0]; //rxNDEFMessagePtr now points to the header of rxNDEFMessage[0]
-uint8_t txLen;  
-uint8_t message[6] = "Hello";  // This is the message that we want to send
+uint8_t *txNDEFMessagePtr; 
+uint8_t *rxNDEFMessagePtr; 
+uint8_t txLen;
+
+void setup(void) {
+    Serial.begin(9600);
+    Serial.println(F("<Setup>"));
 
 
-//
-
-void setup(void){
-  
-  Serial.begin(9600);
-  Serial.println("--Setup--");
-  
-
-
- txLen = nppLayer.createNDEFShortRecord(message, 6, txNDEFMessagePtr);
-  /*
-  if (!txLen)
-  {
-      Serial.println("Failed to create NDEF Message.");
-      while(true); //halt
-  }
-  
-    Serial.println("Created NDEF Message:");
-    for(uint8_t i = 0; i < (MAX_PKT_HEADER_SIZE + MAX_PKT_PAYLOAD_SIZE); i++){
-    Serial.print(F(" :")); 
-    Serial.print(i); 
-    Serial.print(F(" 0x")); 
-    Serial.print(txNDEFMessagePtr[i], HEX);
-  }*/
-  
- 
-   
- 
-  // set power sleep mode, wakes on IRQ from PN532
-  pinMode(wakePin, INPUT);
-  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-  attachInterrupt(0, wakeUpFunction, FALLING);
-  
+    uint8_t message[33] = "01234";
+    txNDEFMessagePtr = &txNDEFMessage[MAX_PKT_HEADER_SIZE];
+    rxNDEFMessagePtr = &rxNDEFMessage[0]; //This is defined in LOOP, so why here?
+    txLen = nppLayer.createNDEFShortRecord(message, 5, txNDEFMessagePtr); //The message has now be created and formated as a NDEF message!    
     
-  nfc.initializeReader();
-  Serial.println("Minne:");
-  Serial.println(freeMemory());
-  Serial.println("Minne:");
-  Serial.println(availableMemory());
+  
+  //Prints the NDEF message we try to send!  
+    #ifdef PN532DEBUG 
+    for(uint8_t i = 0; i < txLen; i++){
+      Serial.print(" 0x");
+      Serial.print(txNDEFMessagePtr[i], HEX );
+    }    
+   #endif
+   
+    Serial.println(F(""));
+      
+    
+    if (!txLen) //When will this ever happen?
+    { 
+        Serial.println(F("<Setup> Failed to create NDEF Message"));
+        while(true); //halt
+    }
+    
+    
+    nfc.initializeReader();  //Wire.begin().
+
+    uint32_t versiondata = nfc.getFirmwareVersion();
+    if (! versiondata) {
+        Serial.print("<Setup> Didn't find PN53x board");
+        while (1); // halt
+    }
+
+    // set power sleep mode, the deep sleep?
+    set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+
+    // configure board to read RFID tags and cards
+    nfc.SAMConfig();
+    Serial.println(F("configurePeerAsTarget SETUP"));
+    nfc.configurePeerAsTarget(NPP_SERVER);
+    
+    Serial.println(F("<Setup> Minne:"));
+    Serial.print(freeMemory());
+
 }
 
-void loop(){
-    
-  Serial.println();
-  Serial.println(F("---------------- LOOP ----------------------"));
-  Serial.println();
+void loop(void) 
+{
+   Serial.println(F("\n<Loop>\n"));
 
- 
- //TODO, this method returns weither it was successfull or not
-  Serial.println("BEGIN SAMCONFIG.");
-  nfc.SAMConfig();
-  Serial.println("END SAMCONFIG.");
-  
-  Serial.println("BEGIN GetFirmwareVersion.");
-  delay(5);
-  nfc.getFirmwareVersion();
-  delay(5);
-  Serial.println("END GetFirmwareVersion.");
-  
-  Serial.println("BEGIN GENERAL STATUS.");
-  if(RESULT_SUCCESS == nfc.getGeneralStatus()){
-    Serial.println("SUCCESS.");
-  }
-  delay(5);
-  Serial.println("END GENERAL STATUS.");
-  
-  if(RESULT_SUCCESS == nfc.configurePeerAsTarget(NPP_SERVER))
-  
-    Serial.println("Minne:");
-    Serial.println(freeMemory());
-    Serial.println("Minne:");
-    Serial.println(availableMemory());
-    Serial.println("Back in Loop");
-  delay(5);
-  
-  if(RESULT_SUCCESS == nppLayer.pushPayload(txNDEFMessagePtr, 6)){
-    Serial.println("Message pushed");
-  }
-  
-  Serial.println();
-  Serial.println(F("---------------- END LOOP ----------------------"));
-  Serial.println();
-  
+    uint32_t rxResult = GEN_ERROR; 
+    uint32_t txResult = GEN_ERROR;
+    rxNDEFMessagePtr = &rxNDEFMessage[0]; //Here or up there? We never get here again anyways!
+    
+    uint8_t *buf = (uint8_t *) txNDEFMessagePtr;
+    
+    //Serial.println(F("NDEF Message")); 
+    /*for (uint16_t i = 0; i < len; ++i){
+        Serial.print(F("0x")); 
+        Serial.print(buf[i], HEX);
+        Serial.print(F(" "));
+    }*/
+    
+     
+    do 
+    {
+        Serial.print(F("<Loop> Minne:"));
+        Serial.println(freeMemory());
+        
+        rxResult = nppLayer.rxNDEFPayload(rxNDEFMessagePtr);
+        if (rxResult == SEND_COMMAND_RX_TIMEOUT_ERROR){
+           Serial.println(F("<Loop> SEND_COMMAND_RX_TIMEOUT_ERROR"));
+           break;
+        }
+      
+
+        txResult = nppLayer.pushPayload(txNDEFMessagePtr, txLen);
+               
+        if (RESULT_OK(rxResult))
+        {
+           Serial.println(F("<Loop> rxResult"));
+           boolean lastPayload;
+           uint8_t *ndefTextPayload;
+           uint8_t len = nppLayer.retrieveTextPayload(rxNDEFMessagePtr, ndefTextPayload, lastPayload);
+           if (len)
+           {
+               for (uint32_t i = 0; i < len ; ++i)
+               {  
+                   Serial.print(F("0x")); Serial.print(ndefTextPayload[i], HEX); Serial.print(F(" "));
+               }
+               Serial.println();
+               Serial.println((char *) ndefTextPayload);
+           }
+           
+            txNDEFMessagePtr = &txNDEFMessage[MAX_PKT_HEADER_SIZE];
+            rxNDEFMessagePtr = &rxNDEFMessage[0];
+            txLen = nppLayer.createNDEFShortRecord(ndefTextPayload, len, txNDEFMessagePtr);    
+            
+            if (!txLen)
+            { 
+                Serial.println(F("<Loop> Failed 2 to create NDEF Message"));
+                while(true); //halt
+            }
+        }
+        if (txResult == SEND_COMMAND_RX_TIMEOUT_ERROR)
+        {
+           break;
+        }
+        Serial.print(F("<Loop> Result: 0x"));
+        Serial.print(rxResult, HEX);
+        Serial.print(F("<Loop>, 0x"));
+        Serial.println(txResult, HEX);  
+        Serial.println(F("<Loop> Reaches the end of do-while in LOOP"));      
+     } while(true);
   //Type y in Serial Monitor
   while((char)Serial.read() != 'y' );
- }
- 
-void wakeUpFunction(){
-  
 }

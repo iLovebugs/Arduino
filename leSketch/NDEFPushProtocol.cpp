@@ -9,11 +9,12 @@ NDEFPushProtocol::~NDEFPushProtocol()
 {
 }
 
-// Har flyttat hit från ino filen
+
+//Moved from INO-file. Uses NDEF format not SNEP.
 uint32_t NDEFPushProtocol::createNDEFShortRecord(uint8_t *message, uint8_t payloadLen, uint8_t *&NDEFMessage)
 {
-   Serial.print("Message: ");
-   Serial.println((char *)message);
+   Serial.print(F("Message: "));
+   Serial.println((char *)message); //Unintresing? We know that we want to send 01234?
    uint8_t * NDEFMessageHdr = ALLOCATE_HEADER_SPACE(NDEFMessage, NDEF_SHORT_RECORD_MESSAGE_HDR_LEN);
    
    
@@ -27,16 +28,15 @@ uint32_t NDEFPushProtocol::createNDEFShortRecord(uint8_t *message, uint8_t paylo
   //To summerize: We will send a message of with only one record (MB ME flags set) length field is now only one octet (SR flag set length field )
    //and we send Media-type as defined in RFC 2046 by setting TYPE_FORMAT_MEDIA_TYPE
    
-   NDEFMessageHdr[1] =  SHORT_RECORD_TYPE_LEN; //Indicates the length of the TYPE field
+   NDEFMessageHdr[1] =  SHORT_RECORD_TYPE_LEN; //Indicates the length of the TYPE field. 0x0A 
    NDEFMessageHdr[2] =  payloadLen;            //This field is now only one octet, That is we can only send messages with max length 255
-   memcpy(&NDEFMessageHdr[3], TYPE_STR, SHORT_RECORD_TYPE_LEN); //Adds the TYPE_STR to the record
-   memcpy(NDEFMessage, message, payloadLen); //Copies the message, but only payloadLen of it
-   //Serial.print("NDEF Message: ");
-   //Serial.println((char *)NDEFMessage);   
-   NDEFMessage = NDEFMessageHdr; // NDEFMessage now points to first header byte
+   memcpy(&NDEFMessageHdr[3], TYPE_STR, SHORT_RECORD_TYPE_LEN); //Adds the TYPE_STR to the record, This message is now a text message!
+                                                                //Also since the IL flag was not set in the header this field is not the ID_LENGTH!
+   memcpy(NDEFMessage, message, payloadLen); //Copies the message if the lenght is set accordingly.
+   NDEFMessage = NDEFMessageHdr; // NDEFMessage now points to first header byte, and subsecuent bytes should also follow.
    return (payloadLen + NDEF_SHORT_RECORD_MESSAGE_HDR_LEN); 
 }
-/*
+// Stängt härifrån
 // Har flyttat hit från ino filen
 uint32_t NDEFPushProtocol::retrieveTextPayloadFromShortRecord(uint8_t *NDEFMessage, uint8_t type, uint8_t *&payload, boolean isIDLenPresent)
 {
@@ -77,14 +77,14 @@ uint32_t NDEFPushProtocol::retrieveTextPayloadFromShortRecord(uint8_t *NDEFMessa
                  for (uint8_t i = 0; i < (typeLen - 1); ++i) {
                     if (NDEFMessage[idx++] != 0x00)
                     {
-                       Serial.println("Unhandled NDEF Message Type.");
+                       Serial.println(F("Unhandled NDEF Message Type."));
                        return 0;
                     }
                  }
                  
                  if ( NDEFMessage[idx++] != NFC_FORUM_TEXT_TYPE ) 
                  {
-                     Serial.println("Unhandled NDEF Message Type.");
+                     Serial.println(F("Unhandled NDEF Message Type."));
                      return 0;
                  }
              }
@@ -94,7 +94,7 @@ uint32_t NDEFPushProtocol::retrieveTextPayloadFromShortRecord(uint8_t *NDEFMessa
                  if (typeLen != 0xA || strncmp(typeStr, "text/plain", typeLen) != 0)
                  {
                     NDEFMessage[typeLen + idx] = NULL;
-                    Serial.print("Unknown Type: ");
+                    Serial.print(F("Unknown Type: "));
                     Serial.println(NDEFMessage[idx]);
                     return 0;
                  }
@@ -147,7 +147,7 @@ uint32_t NDEFPushProtocol::retrieveTextPayload(uint8_t *NDEFMessage, uint8_t *&p
    }
    else 
    {
-      Serial.println("TODO");
+      Serial.println(F("TODO"));
       //@TODO:
    }
 }
@@ -155,11 +155,12 @@ uint32_t NDEFPushProtocol::retrieveTextPayload(uint8_t *NDEFMessage, uint8_t *&p
 // Här börjar orginalet!
 uint32_t NDEFPushProtocol::rxNDEFPayload(uint8_t *&data)
 {
+    Serial.println(F("<rxNDEFPayload>"));
     uint32_t result = _linkLayer->openNPPServerLink();
 
     if(RESULT_OK(result)) //if connection is error-free
     {
-       //Serial.println(F("CONNECTED."));
+       Serial.println(F("CONNECTED."));
        result = _linkLayer->serverLinkRxData(data);
        if (RESULT_OK(result))
        {
@@ -169,17 +170,17 @@ uint32_t NDEFPushProtocol::rxNDEFPayload(uint8_t *&data)
            
            if (nppMessage->version != NPP_SUPPORTED_VERSION) 
            {
-              Serial.println(F("Recieved an NPP message of an unsupported version."));
+              //Serial.println(F("Recieved an NPP message of an unsupported version."));
               return NPP_UNSUPPORTED_VERSION;
            } 
            else if (nppMessage->numNDEFEntries != 1) 
            {
-              Serial.println(F("Invalid number of NDEF entries"));
+              //Serial.println(F("Invalid number of NDEF entries"));
               return NPP_INVALID_NUM_ENTRIES;
            } 
            else if (nppMessage->actionCode != NPP_ACTION_CODE)
            {
-              Serial.println(F("Invalid Action Code"));
+              //Serial.println(F("Invalid Action Code"));
               return NPP_INVALID_ACTION_CODE;
            }
            
@@ -191,10 +192,11 @@ uint32_t NDEFPushProtocol::rxNDEFPayload(uint8_t *&data)
            data = nppMessage->NDEFMessage;
            return nppMessage->NDEFLength;               
        }            
-    }        
+    }  
+    Serial.println(F("Error: NO server link"));    
     return result;
 }
-*/
+// stängt hit
 uint32_t NDEFPushProtocol::pushPayload(uint8_t *NDEFMessage, uint32_t length)
 {
     NPP_MESSAGE *nppMessage = (NPP_MESSAGE *) ALLOCATE_HEADER_SPACE(NDEFMessage, NPP_MESSAGE_HDR_LEN);
@@ -217,9 +219,10 @@ uint32_t NDEFPushProtocol::pushPayload(uint8_t *NDEFMessage, uint32_t length)
   
     if(RESULT_OK(result)) //if connection is error-free
     { 
+        Serial.println(F("pushPayload: Transmitt data to client")); 
         result =  _linkLayer->clientLinkTxData((uint8_t *)nppMessage, length + NPP_MESSAGE_HDR_LEN);
     }
-    Serial.println("Link open: "); 
+    Serial.println(F("Link open: ")); 
     Serial.println(RESULT_OK(result));
     return result;       
 }

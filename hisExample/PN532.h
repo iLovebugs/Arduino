@@ -4,10 +4,9 @@
 // authenticateBlock, readMemoryBlock, writeMemoryBlock contributed
 // by Seeed Technology Inc (www.seeedstudio.com)
 
+
 #include "Arduino.h"
 #include "NFCReader.h"
-#include <avr/sleep.h>
-#include <avr/power.h>
 
 #define PN532_PREAMBLE 0x00
 #define PN532_STARTCODE1 0x00
@@ -40,12 +39,6 @@
 #define  PN532_SPI_DATAWRITE 0x01
 #define  PN532_SPI_DATAREAD 0x03
 #define  PN532_SPI_READY 0x01
-
-#define PN532_I2C_ADDRESS (0x48 >> 1)
-#define PN532_I2C_READBIT (0x01)
-#define PN532_I2C_DATA_TO_FETCH (0x00)
-#define PN532_I2C_NO_DATA (0x01)
-#define TIMEOUT (20)
 
 #define PN532_MIFARE_ISO14443A 0x0
 
@@ -92,15 +85,14 @@ enum READER_ERRORS
     CARD_INACTIVE_ERROR,
     NFCID3_MISMATCH_ERROR,
     OVER_CURRENT_ERROR,
-    DEP_NAD_MISSING,
-    CONNECTION_ERROR,   
+    DEP_NAD_MISSING,   
 };
 
 struct PN532_CMD_RESPONSE {
-   uint8_t preamble;
    uint8_t header[2];   // 0x00 0xFF
    uint8_t len;         
    uint8_t len_chksum;  // len + len_chksum = 0x00 
+   uint8_t data_len;
    uint8_t direction;
    uint8_t responseCode;
    uint8_t data[0];
@@ -110,65 +102,63 @@ struct PN532_CMD_RESPONSE {
    
 };
 
-class PN532 : public NFCReader{
+class PN532 : public NFCReader {
 public:
-    PN532(uint8_t irq, uint8_t reset);
+    PN532(uint8_t cs, uint8_t clk, uint8_t mosi, uint8_t miso);
 
+    uint32_t SAMConfig(void);
     void initializeReader();
-    uint32_t SAMConfig();    
-    uint32_t getFirmwareVersion();
     
-    /*
+    uint32_t getFirmwareVersion(void);
     uint32_t readPassiveTargetID(uint8_t cardbaudrate);
-    uint32_t authenticateBlock(	uint8_t cardnumber, //1 or 2
+    uint32_t authenticateBlock(	uint8_t cardnumber /*1 or 2*/,
 				uint32_t cid,
 				uint8_t blockaddress,
-				uint8_t authtype, //Either KEY_A or KEY_B
+				uint8_t authtype /*Either KEY_A or KEY_B */,
 				uint8_t * keys);
 
-    uint32_t readMemoryBlock(uint8_t cardnumber, //1 or 2
-                             uint8_t blockaddress, //0 to 63 
+    uint32_t readMemoryBlock(uint8_t cardnumber /*1 or 2*/,
+                             uint8_t blockaddress /*0 to 63*/, 
                              uint8_t * block);
                              
-    uint32_t writeMemoryBlock(uint8_t cardnumber, //1 or 2
-                              uint8_t blockaddress, //0 to 63
+    uint32_t writeMemoryBlock(uint8_t cardnumber /*1 or 2*/,
+                              uint8_t blockaddress /*0 to 63*/, 
                               uint8_t * block);
 
-    uint32_t configurePeerAsInitiator(uint8_t baudrate);
- */   
+    uint32_t configurePeerAsInitiator(uint8_t baudrate); 
     uint32_t configurePeerAsTarget(uint8_t type); 
- /* 
+    
     uint32_t getTargetStatus(uint8_t *response);
-*/
+
     uint32_t sendCommandCheckAck(uint8_t *cmd, 
                                  uint8_t cmdlen, 
-                                 uint16_t timeout = 1000,
+                                 uint16_t timeout = 1000, 
                                  boolean debug = true);
-                                 
- uint32_t getGeneralStatus();                               
-/*
+
     uint32_t initiatorTxRxData(uint8_t *DataOut, 
                                uint32_t dataSize, 
-                               uint8_t *response);
-   */
+                               uint8_t *response,
+                               boolean debug = true);
+   
     uint32_t targetTxData(uint8_t *DataOut, 
-                          uint32_t dataSize);
+                          uint32_t dataSize,
+                          boolean debug = true);
                                                          
-    uint32_t targetRxData(uint8_t *response);  
+    uint32_t targetRxData(uint8_t *response, boolean debug = true);  
     
     boolean isTargetReleasedError(uint32_t result);   
    
 
 private:
-    uint8_t _irq, _reset;
-    void sleepArduino();
-    boolean fetchCheckAck(uint16_t timeout = 1000);
-    uint8_t checkDataAvailable(void);
-    uint32_t fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *reponse);
-    void fetchData(uint8_t* buff, uint16_t timeout = 1000); //debugg=?
-    void sendFrame(uint8_t* cmd, uint8_t cmdlen);
-    void wiresend(uint8_t c);
-    uint8_t wirerecv(void);
+    uint8_t _ss, _clk, _mosi, _miso;
+
+    boolean spi_readack(boolean debug = true);
+    uint8_t readspistatus(void);
+    uint32_t readspicommand(uint8_t cmdCode, PN532_CMD_RESPONSE *reponse, boolean debug = true);
+    void readspidata(uint8_t* buff, uint32_t n, boolean debug = true);
+    void spiwritecommand(uint8_t* cmd, uint8_t cmdlen, boolean debug = true);
+    void spiwrite(uint8_t c);
+    uint8_t spiread(void);
 };
 
 
