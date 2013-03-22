@@ -21,6 +21,8 @@
 #define CONNECT_SERVICE_NAME_LEN     0x0F
 #define CONNECT_SERVICE_NAME         "com.android.npp"
 
+#define SNEP_CLIENT                  0x04
+
 #define CONNECT_SERVER_PDU_LEN       CONNECT_SERVICE_NAME_LEN + 4
 
 
@@ -63,18 +65,21 @@ public:
    NFCLinkLayer(NFCReader *nfcReader);
    ~NFCLinkLayer();
    
-   uint32_t openNPPServerLink(boolean debug = true);
-   uint32_t closeNPPServerLink();
+   uint32_t openLinkToClient(boolean debug = true);
+   uint32_t closeLinkToClient();
       
-   uint32_t openNPPClientLink(boolean debug = true);
-   uint32_t closeNPPClientLink();
+   uint32_t openLinkToServer(boolean debug = true);
+   uint32_t closeLinkToServer();
    
-   uint32_t serverLinkRxData(uint8_t *&Data, boolean debug = true);
-   uint32_t clientLinkTxData(uint8_t *nppMessage, uint32_t len, boolean debug = true);
+   uint32_t receiveFromClient(uint8_t *&Data, boolean debug = true);
+   uint32_t transmitToServer(uint8_t *nppMessage, uint32_t len, boolean debug = true);
 private:
    NFCReader *_nfcReader;
    uint8_t DSAP;
    uint8_t SSAP;
+   PDU buildCCPDU(PDU targetPayload, PDU *recievedPDU);
+   void buildConnectPDU(PDU targetPayload);
+   void buildSYMMPDU(PDU targetPayload);
 };
 
 

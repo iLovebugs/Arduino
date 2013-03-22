@@ -11,13 +11,13 @@ NDEFPushProtocol::~NDEFPushProtocol()
 
 uint32_t NDEFPushProtocol::rxNDEFPayload(uint8_t *&data)
 {
-    uint32_t result = _linkLayer->openNPPServerLink(true);
+    uint32_t result = _linkLayer->openLinkToClient(true);
     
     
     if(RESULT_OK(result)) //if connection is error-free
     {
        Serial.println(F("CONNECTED."));
-       result = _linkLayer->serverLinkRxData(data,true);
+       result = _linkLayer->receiveFromClient(data,true);
        if (RESULT_OK(result))
        {
            NPP_MESSAGE *nppMessage = (NPP_MESSAGE *)data; 
@@ -40,7 +40,7 @@ uint32_t NDEFPushProtocol::rxNDEFPayload(uint8_t *&data)
               return NPP_INVALID_ACTION_CODE;
            }
            
-           _linkLayer->closeNPPServerLink();
+           _linkLayer->closeLinkToClient();
            
            Serial.println(F("Returning NPP Message"));
            Serial.print(F("Length: "));
@@ -70,11 +70,11 @@ uint32_t NDEFPushProtocol::pushPayload(uint8_t *NDEFMessage, uint32_t length)
         Serial.print(buf[i], HEX);
         Serial.print(F(" "));
     }*/
-    uint32_t result = _linkLayer->openNPPClientLink(true);
+    uint32_t result = _linkLayer->openLinkToServer(true);
   
     if(RESULT_OK(result)) //if connection is error-free
     { 
-        result =  _linkLayer->clientLinkTxData((uint8_t *)nppMessage, length + NPP_MESSAGE_HDR_LEN,true);
+        result =  _linkLayer->transmitToServer((uint8_t *)nppMessage, length + NPP_MESSAGE_HDR_LEN,true);
     } 
     
     return result;       

@@ -2,6 +2,7 @@
 #include "NFCLinkLayer.h"
 #include "MemoryFree.h"
 #include "NDEFPushProtocol.h"
+#include "SNEP.h"
 #include <avr/power.h>
 #include <avr/sleep.h>
 
@@ -12,7 +13,8 @@
 
 PN532 nfc(SCK, MISO, MOSI, SS);
 NFCLinkLayer linkLayer(&nfc);
-NDEFPushProtocol nppLayer(&linkLayer);
+SNEP snep(&linkLayer);
+//NDEFPushProtocol nppLayer(&linkLayer);
 
 uint32_t retrieveTextPayload(uint8_t *NDEFMessage, uint8_t type, uint8_t *&payload, boolean &lastTextPayload);
 uint32_t retrieveTextPayloadFromShortRecord(uint8_t *NDEFMessage, uint8_t *&payload, boolean isIDLenPresent);
@@ -27,6 +29,7 @@ uint8_t txNDEFMessage[MAX_PKT_HEADER_SIZE + MAX_PKT_PAYLOAD_SIZE];
 uint8_t *txNDEFMessagePtr; 
 uint8_t *rxNDEFMessagePtr; 
 uint8_t txLen;
+uint8_t requestType[5];
 
 #define SHORT_RECORD_TYPE_LEN   0x0A
 #define NDEF_SHORT_RECORD_MESSAGE_HDR_LEN   0x03 + SHORT_RECORD_TYPE_LEN
@@ -104,14 +107,16 @@ void loop(void)
     do 
     {
         Serial.println(F("---- Begin Rx Loop ----"));
-        rxResult = nppLayer.rxNDEFPayload(rxNDEFMessagePtr);
+        //rxResult = nppLayer.rxNDEFPayload(rxNDEFMessagePtr);
+        rxResult = snep.receiveRequest(rxNDEFMessagePtr, (uint8_t *&)requestType);
         
         if (rxResult == SEND_COMMAND_RX_TIMEOUT_ERROR)
         {
            break;
         }
       
-        txResult = nppLayer.pushPayload(txNDEFMessagePtr, txLen);
+        //txResult = nppLayer.pushPayload(txNDEFMessagePtr, txLen);
+        txResult = snep.transmitResponse(txNDEFMessagePtr, txLen, (uint8_t)0x81);
                
         if (RESULT_OK(rxResult))
         {
