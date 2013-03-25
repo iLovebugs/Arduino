@@ -24,6 +24,7 @@
 #define SNEP_CLIENT                  0x04
 
 #define CONNECT_SERVER_PDU_LEN       CONNECT_SERVICE_NAME_LEN + 4
+#define SYMM_PDU_LEN                 0x02
 
 
 struct PARAMETER_DESCR {
