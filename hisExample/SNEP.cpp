@@ -58,21 +58,24 @@ uint32_t SNEP::receiveRequest(uint8_t *&data, uint8_t *&request){
 //            length is the length of the NDEF message to be sent
 //            response is the response type to be used
 // Returns the length of the received NDEF message
-uint32_t SNEP::transmitResponse(uint8_t *NDEFMessage, uint32_t length, uint8_t responseType){
-  SNEP_RESPONSE *snepMessage;
+uint32_t SNEP::transmitResponse(uint8_t *NDEFMessage, uint32_t length, uint8_t *responseType){
+  SNEP_PDU *snepResponse;
   
   //We only add information IF a GET_REQUEST was received 
-  if(responseType == SNEP_GET_REQUEST)
-    snepMessage = (SNEP_RESPONSE *) ALLOCATE_HEADER_SPACE(NDEFMessage, SNEP_MESSAGE_HEADER_LEN);
+  if(responseType[0] == SNEP_GET_REQUEST)
+    snepResponse = (SNEP_PDU *) ALLOCATE_HEADER_SPACE(NDEFMessage, SNEP_PDU_HEADER_LEN);
+  
+  
+  //What about Acceptable Lenght?
   
   // Incapsulate the NDEF message into a SNEP response message
-  snepMessage->version = SNEP_SUPPORTED_VERSION;
-  snepMessage->response = responseType;
-  snepMessage->length = length;
+  snepResponse->version = SNEP_SUPPORTED_VERSION;
+  snepResponse->type = *responseType;
+  snepResponse->length = length;
 
   // uint32_t result = _linkLayer->openLinkToServer(true); //We open the link here, so why does it say that a link must be opened before this is called?
   
-    uint32_t result =  _linkLayer->transmitToServer((uint8_t *)snepMessage, length + SNEP_MESSAGE_HEADER_LEN,true);
+    uint32_t result =  _linkLayer->transmitToServer((uint8_t *)snepResponse, length + SNEP_PDU_HEADER_LEN,true);    
    
    //TODO bad name?
    _linkLayer->closeLinkToClient(); //Recieve a DISC pdu, Client tears down the connection.
@@ -85,17 +88,54 @@ uint32_t SNEP::transmitResponse(uint8_t *NDEFMessage, uint32_t length, uint8_t r
 //            length is the length of the NDEF message to be sent
 //            request[0] is the the SNEP request type and request[1] is the acceptable length if SNEP request type is Get
 // Returns the length of the received NDEF message
-uint32_t SNEP::transmitRequest(uint8_t *NDEFMessage, uint32_t length, uint8_t *&request){
+//why *& as argument?
+uint32_t SNEP::transmitRequest(uint8_t *NDEFMessage, uint32_t length, uint8_t request){
   
+  uint32_t result;
+  //Opening link to server.  
+  result = _linkLayer->openLinkToServer(true);
   
+  //if data-link was succesfully established continue, else abort.
+  if(RESULT_OK(result)){
   
+    if(request == SNEP_GET_REQUEST){
+      SNEP_GET_REQ_PDU *snepGetRequest;          
+      snepGetRequest = (SNEP_GET_REQ_PDU *) ALLOCATE_HEADER_SPACE(NDEFMessage, SNEP_GET_REQ_HEADER_LEN);
+      snepGetRequest -> version =  SNEP_SUPPORTED_VERSION;
+      snepGetRequest -> type = request;
+      snepGetRequest -> length = length;
+      snepGetRequest -> acceptableLength = SNEP_ACCEPTABLE_LENGTH; //set to default size?
+          
+      //Caller must check the result
+      result = _linkLayer -> transmitToServer((uint8_t *)snepGetRequest, length + SNEP_GET_REQ_HEADER_LEN, true);        
+    } 
+        //All Request frames except GET uses a common structure
+    else{  
+      //If a data-link was established send the request, else abort.
+          SNEP_PDU *snepRequest;
+          snepRequest = (SNEP_PDU *) ALLOCATE_HEADER_SPACE(NDEFMessage, SNEP_PDU_HEADER_LEN);          
+          snepRequest -> version =  SNEP_SUPPORTED_VERSION;
+          snepRequest -> type = request;
+          snepRequest -> length = length;
+         
+          //caller must chech the result
+          result = _linkLayer -> transmitToServer((uint8_t *)snepRequest, length + SNEP_PDU_HEADER_LEN, true);
+      }
+  } 
+  return result;  
+}  
   
-
-}
 // Receives a SNEP response from the server. A link must have been established before this function is called
 // Arguments: data will be set to point to the received NDEF message
 //            responseType is the response type of the received NDEF message
 // Returns the length of the received NDEF message
 uint32_t SNEP::receiveResponse(uint8_t *NDEFMessage, uint8_t responseType){
+  
+  
+  
+  
+  
+  
+  
   
 }

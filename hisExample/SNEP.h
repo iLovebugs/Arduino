@@ -1,7 +1,6 @@
 #include "Arduino.h"
 #include "NFCLinkLayer.h"
 
-#ifndef SNEP_H
 #define SNEP_H
 
 #define SNEP_SUPPORTED_VERSION 0x10
@@ -16,6 +15,7 @@
 #define SNEP_GET_REQUEST                      0x01
 #define SNEP_PUT_REQUEST                      0x02
 #define SNEP_REJECT_REQUEST                   0x03
+#define SNEP_SUCCESS                          0x81
 
 #define NDEF_MESSAGE_BEGIN_FLAG          0x80
 #define NDEF_MESSAGE_END_FLAG            0x40
@@ -38,14 +38,24 @@
 #define NFC_FORUM_TEXT_TYPE        0x54                   
 
 
-#define SNEP_MESSAGE_HEADER_LEN   0x06
+#define SNEP_PDU_HEADER_LEN   0x06
+#define SNEP_GET_REQ_HEADER_LEN       0x0A //INCLUDES Acceptable Length
+#define SNEP_ACCEPTABLE_LENGTH    0x80 //128-bits
 
-struct SNEP_RESPONSE{
+struct SNEP_PDU{
    uint8_t version;
-   uint8_t response;
+   uint8_t type; //Request OR Response
    uint32_t length;
    uint8_t information[0];   
 };
+
+struct SNEP_GET_REQ_PDU{
+   uint8_t version;
+   uint8_t type; //Request OR Response
+   uint32_t length;
+   uint32_t acceptableLength;
+   uint8_t information[0];
+};   
 
 class SNEP{
 
@@ -55,14 +65,13 @@ class SNEP{
     
     // When a link to a client is established
     uint32_t receiveRequest(uint8_t *&NDEFMessage, uint8_t *&request);
-    uint32_t transmitResponse(uint8_t *NDEFMessage, uint32_t length, uint8_t responseType);
+    uint32_t transmitResponse(uint8_t *NDEFMessage, uint32_t length, uint8_t * responseType);
     
     // When a link to a server is established
-    uint32_t transmitRequest(uint8_t *NDEFMessage, uint32_t length, uint8_t *&request);
+    uint32_t transmitRequest(uint8_t *NDEFMessage, uint32_t length, uint8_t request);
     uint32_t receiveResponse(uint8_t *NDEFMessage, uint8_t responseType);
     
   private:
     NFCLinkLayer *_linkLayer;
 };
 
-#endif

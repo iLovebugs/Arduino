@@ -5,11 +5,17 @@
 #include "SNEP.h"
 #include <avr/power.h>
 #include <avr/sleep.h>
-
+/* //UNO
 #define SCK 13
 #define MOSI 11
 #define SS 10
 #define MISO 12
+*/
+// MEGA
+#define SCK 52
+#define MOSI 51
+#define SS 53
+#define MISO 50
 
 PN532 nfc(SCK, MISO, MOSI, SS);
 NFCLinkLayer linkLayer(&nfc);
@@ -30,6 +36,8 @@ uint8_t *txNDEFMessagePtr;
 uint8_t *rxNDEFMessagePtr; 
 uint8_t txLen;
 uint8_t requestType[5];
+uint8_t success;
+uint8_t *requestType_success;
 
 #define SHORT_RECORD_TYPE_LEN   0x0A
 #define NDEF_SHORT_RECORD_MESSAGE_HDR_LEN   0x03 + SHORT_RECORD_TYPE_LEN
@@ -118,8 +126,10 @@ void loop(void)
         }
       
         //txResult = nppLayer.pushPayload(txNDEFMessagePtr, txLen);
-        //We succesfully recieved the SNEP message, 0x81 indicates success!      
-        txResult = snep.transmitResponse(txNDEFMessagePtr, txLen, (uint8_t)0x81);
+        //We succesfully recieved the SNEP message, 0x81 indicates success!
+        success = SNEP_SUCCESS;
+        requestType_success = &success;
+        txResult = snep.transmitResponse(txNDEFMessagePtr, txLen, requestType_success);
             
         if (RESULT_OK(rxResult))
         {
