@@ -36,7 +36,7 @@ uint32_t SNEP::receiveRequest(uint8_t *&data, uint8_t *&request){
         memcpy(&request[1], &data[6], 4); //Why 4, this point to the actual data that whas transmitted, 
         data = &data[10];
       }else{
-        data = &data[6];
+        data = &data[6]; //Discard SNEP header
       }
       
      /* // If a request without any NDEF message is retrieved, no data can be returned.
@@ -48,7 +48,7 @@ uint32_t SNEP::receiveRequest(uint8_t *&data, uint8_t *&request){
       uint32_t length = data[2];
       Serial.println(length, HEX);
       
-      return data[2];
+      return data[2]; //Why data 2?
     }
   }
   return result;
@@ -129,9 +129,35 @@ uint32_t SNEP::transmitRequest(uint8_t *NDEFMessage, uint32_t length, uint8_t re
 // Arguments: data will be set to point to the received NDEF message
 //            responseType is the response type of the received NDEF message
 // Returns the length of the received NDEF message
-uint32_t SNEP::receiveResponse(uint8_t *NDEFMessage, uint8_t responseType){
+uint32_t SNEP::receiveResponse(uint8_t *&data, uint8_t responseType){
   
+  uint32_t result = _linkLayer->receiveFromClient(data,true);
   
+  if(RESULT_OK(result)){
+         
+      if(data[0] != SNEP_SUPPORTED_VERSION){
+          Serial.print(F("SNEP>receiveData: Recieved an SNEP message of an unsupported version: "));
+          Serial.println(data[0]);
+          return SNEP_UNSUPPORTED_VERSION;     
+    }
+    
+     if(data[1] == SNEP_SUCCESS){
+         if(responseType == SNEP_GET_REQUEST){
+           data = &data[6]; //discard SNEP header
+           return data[2]; //return payloadlength of NDEF-pdu
+         }
+         else{
+           return 0; //in all other cases there is no information present, return 0.
+           data ='\0'; 
+         } 
+     }else
+         return SNEP_UNEXPECTED_RESPONSE;      
+  } 
+  
+    _linkLayer -> closeLinkToServer(); //TODO must write this function...
+    
+  
+  return result; //error code from receiveFromClient
   
   
   

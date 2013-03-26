@@ -78,7 +78,7 @@ private:
    NFCReader *_nfcReader;
    uint8_t DSAP;
    uint8_t SSAP;
-   PDU buildCCPDU(PDU targetPayload, PDU *recievedPDU);
+   PDU buildCCPDU(PDU targetPayload, PDU *receivedPDU);
    void buildConnectPDU(PDU targetPayload);
    void buildSYMMPDU(PDU targetPayload);
 };

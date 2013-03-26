@@ -129,7 +129,7 @@ void loop(void)
         //We succesfully recieved the SNEP message, 0x81 indicates success!
         success = SNEP_SUCCESS;
         requestType_success = &success;
-        txResult = snep.transmitResponse(txNDEFMessagePtr, txLen, requestType_success);
+        txResult = snep.transmitResponse(txNDEFMessagePtr, txLen, requestType_success); //Why txLen!?
             
         if (RESULT_OK(rxResult))
         {

@@ -69,7 +69,7 @@ class SNEP{
     
     // When a link to a server is established
     uint32_t transmitRequest(uint8_t *NDEFMessage, uint32_t length, uint8_t request);
-    uint32_t receiveResponse(uint8_t *NDEFMessage, uint8_t responseType);
+    uint32_t receiveResponse(uint8_t *&NDEFMessage, uint8_t responseType);
     
   private:
     NFCLinkLayer *_linkLayer;

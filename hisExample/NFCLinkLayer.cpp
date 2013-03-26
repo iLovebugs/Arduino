@@ -16,7 +16,7 @@ NFCLinkLayer::~NFCLinkLayer()
 uint32_t NFCLinkLayer::openLinkToServer(boolean debug)
 {
    PDU targetPayload;
-   PDU *recievedPDU;
+   PDU *receivedPDU;
    uint8_t PDUBuffer[20];
    uint8_t DataIn[64];
    
@@ -32,7 +32,7 @@ uint32_t NFCLinkLayer::openLinkToServer(boolean debug)
    }
    
    //What should we wait for her? A SYMMpdu?
-  recievedPDU = ( PDU *) DataIn; 
+  receivedPDU = ( PDU *) DataIn; 
   
    if (!_nfcReader->targetRxData(DataIn, true)) // WHAT DO WE GET?
    {
@@ -61,12 +61,12 @@ uint32_t NFCLinkLayer::openLinkToServer(boolean debug)
     return SYMM_TX_FAILURE;
    }       
    
-  _nfcReader->targetRxData(DataIn, true); // Recieve an CCPDU
+  _nfcReader->targetRxData(DataIn, true); // receive an CCPDU
   
-   recievedPDU = (PDU *)DataIn; //We must cast to a PDU, else this would not work. He does this in the clientlink.
+   receivedPDU = (PDU *)DataIn; //We must cast to a PDU, else this would not work. He does this in the clientlink.
       
     
-   if (recievedPDU->getPTYPE() != CONNECTION_COMPLETE_PTYPE)
+   if (receivedPDU->getPTYPE() != CONNECTION_COMPLETE_PTYPE)
    {
       if (debug)
       {
@@ -76,12 +76,13 @@ uint32_t NFCLinkLayer::openLinkToServer(boolean debug)
    }
    
    //Sets DSAP and SSAP for the established data-link. Will be used when sending I-PDUs
-   DSAP = recievedPDU->getSSAP();
-   SSAP = recievedPDU->getDSAP();
+   DSAP = receivedPDU->getSSAP();
+   SSAP = receivedPDU->getDSAP();
    
    return RESULT_SUCCESS;
 }
 // former closeNPPClientLink
+//Must be called after recieving SNEP response code. Cliten closes link!
 uint32_t NFCLinkLayer::closeLinkToServer(){
   
     /*
@@ -104,7 +105,7 @@ uint32_t NFCLinkLayer::openLinkToClient(boolean debug)
 {
    uint8_t status[2]; //wat is dis?
    uint8_t DataIn[64];
-   PDU *recievedPDU;
+   PDU *receivedPDU;
    PDU targetPayload;
    uint32_t result;
 
@@ -120,7 +121,7 @@ uint32_t NFCLinkLayer::openLinkToClient(boolean debug)
        return result;
    }
    
-   recievedPDU = (PDU *)DataIn;
+   receivedPDU = (PDU *)DataIn;
    do 
    {
      Serial.println(F("--- Recive CONNECTION PDU loop ---"));
@@ -139,9 +140,9 @@ uint32_t NFCLinkLayer::openLinkToClient(boolean debug)
      {
         return result;   
      }
-   } while (!recievedPDU->isConnectClientRequest());
+   } while (!receivedPDU->isConnectClientRequest());
    
-   targetPayload = buildCCPDU(targetPayload, recievedPDU);
+   targetPayload = buildCCPDU(targetPayload, receivedPDU);
  
    Serial.println(F("Trying to send Connection Complete PDU to peer."));
    if (IS_ERROR(_nfcReader->targetTxData((uint8_t *)&targetPayload, 2, true))) //change this 2 to a predefined value CC_LEN ? 
@@ -160,9 +161,9 @@ uint32_t NFCLinkLayer::openLinkToClient(boolean debug)
 uint32_t NFCLinkLayer::closeLinkToClient() 
 {
    uint8_t DataIn[64];
-   PDU *recievedPDU;
+   PDU *receivedPDU;
    
-   recievedPDU = (PDU *)DataIn;
+   receivedPDU = (PDU *)DataIn;
    
    uint32_t result = _nfcReader->targetRxData(DataIn, true);
    
@@ -177,7 +178,7 @@ uint32_t NFCLinkLayer::closeLinkToClient()
    
    
    //TODO? Add a control for DISC pdu?
-   Serial.println(F("Recieved disconnect Message.")); 
+   Serial.println(F("received disconnect Message.")); 
    
    return result;
 }
@@ -186,9 +187,9 @@ uint32_t NFCLinkLayer::receiveFromClient(uint8_t *&Data, boolean debug)
 {
   PDU targetPayload;
   uint32_t result;
-  PDU *recievedPDU;
+  PDU *receivedPDU;
   
-  recievedPDU = (PDU *)Data;
+  receivedPDU = (PDU *)Data;
   
   buildSYMMPDU(targetPayload);
    do
@@ -199,20 +200,20 @@ uint32_t NFCLinkLayer::receiveFromClient(uint8_t *&Data, boolean debug)
        
        if(IS_ERROR(result))
        {
-         Serial.println(F("Failed to Recieve NDEF Message."));
+         Serial.println(F("Failed to receive NDEF Message."));
          return NDEF_MESSAGE_RX_FAILURE;
        }
-   }while(recievedPDU->getPTYPE() != INFORMATION_PTYPE);
+   }while(receivedPDU->getPTYPE() != INFORMATION_PTYPE);
    
-   Serial.println(F("Recieved INFORMATION_PTYPE"));
+   Serial.println(F("received INFORMATION_PTYPE"));
    PDU ackPDU;   
 
    // Acknowledge reciept of Information PDU, using a RR frame.
-   ackPDU.setDSAP(recievedPDU->getSSAP());
+   ackPDU.setDSAP(receivedPDU->getSSAP());
    ackPDU.setPTYPE(RECEIVE_READY_TYPE);
-   ackPDU.setSSAP(recievedPDU->getDSAP());
+   ackPDU.setSSAP(receivedPDU->getDSAP());
    
-   ackPDU.params.sequence = recievedPDU->params.sequence & 0x0F;
+   ackPDU.params.sequence = receivedPDU->params.sequence & 0x0F;
    
    result = _nfcReader->targetTxData((uint8_t *)&ackPDU, 3, true);
    if (IS_ERROR(result)) 
@@ -287,11 +288,11 @@ void NFCLinkLayer::buildSYMMPDU(PDU targetPayload)
   #endif
 }
 
-PDU NFCLinkLayer::buildCCPDU(PDU targetPayload, PDU *recievedPDU)
+PDU NFCLinkLayer::buildCCPDU(PDU targetPayload, PDU *receivedPDU)
 {
-   targetPayload.setDSAP(recievedPDU -> getSSAP());
+   targetPayload.setDSAP(receivedPDU -> getSSAP());
    targetPayload.setPTYPE(CONNECTION_COMPLETE_PTYPE);
-   targetPayload.setSSAP(recievedPDU -> getDSAP());
+   targetPayload.setSSAP(receivedPDU -> getDSAP());
    
    #ifdef NFCLinkLayerDEBUG
    Serial.print("CCPDU: ");
