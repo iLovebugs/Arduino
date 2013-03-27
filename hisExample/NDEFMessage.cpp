@@ -1,11 +1,9 @@
-#include "NDEFMEssage.h"
-
+#include "NDEFMessage.h"
 
 NDEFMessage::NDEFMessage(){
-  //Default constructor
 }
 
-NDEFMessage::uint32_t createNDEFShortRecord(uint8_t *message, uint8_t payloadLen, uint8_t *&NDEFMessage)
+uint32_t NDEFMessage::createNDEFShortRecord(uint8_t *message, uint8_t payloadLen, uint8_t *&NDEFMessage)
 {
    //Serial.print("Message: ");
    //Serial.println((char *)message);
@@ -25,7 +23,7 @@ NDEFMessage::uint32_t createNDEFShortRecord(uint8_t *message, uint8_t payloadLen
 
 //This method checks the NDEF header. The header MUST be of MEDIA_TYPE else the NDEF-message will be discarded.
 //Will call methods that extracts information from short record or normal records. Only the short record method is implemented.
-NDEFMessage::uint32_t retrieveTextPayload(uint8_t *NDEFMessage, uint8_t *&payload, boolean &lastTextPayload)
+uint32_t NDEFMessage::retrieveTextPayload(uint8_t *NDEFMessage, uint8_t *&payload, boolean &lastTextPayload)
 {
    Serial.println(NDEFMessage[0], HEX);
    Serial.println(NDEFMessage[1], HEX);
@@ -50,7 +48,7 @@ NDEFMessage::uint32_t retrieveTextPayload(uint8_t *NDEFMessage, uint8_t *&payloa
 
 
 //This function parses the ShortRecord, extracting the information.
-NDEFMessage::uint32_t retrieveTextPayloadFromShortRecord(uint8_t *NDEFMessage, uint8_t type, uint8_t *&payload, boolean isIDLenPresent)
+uint32_t NDEFMessage::retrieveTextPayloadFromShortRecord(uint8_t *NDEFMessage, uint8_t type, uint8_t *&payload, boolean isIDLenPresent)
 {
    NDEFState currentState =  NDEF_TYPE_LEN; //This is the first field after the NDEF header.
    payload = NULL;

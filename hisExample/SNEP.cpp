@@ -53,13 +53,18 @@ uint32_t SNEP::receiveRequest(uint8_t *&data){
 //            length is the length of the NDEF message to be sent
 //            response is the response type to be used
 // Returns the length of the received NDEF message
-uint32_t SNEP::transmitSuccsses(){
+uint32_t SNEP::transmitSuccess(){
   SNEP_PDU *snepResponse;
  
   // Incapsulate the NDEF message into a SNEP response message
+  // TODO METODER FÖR ATT TILLDELA SKIT!
+  snepResponse-> parameters[0] = SNEP_SUPPORTED_VERSION;
+  snepResponse-> parameters[1] = SNEP_SUCCESS;
+  snepResponse-> parameters[5] = 0;
+  /*
   snepResponse->version = SNEP_SUPPORTED_VERSION;
   snepResponse->type = SNEP_SUCCESS;
-  snepResponse->length = 0;
+  snepResponse->length = 0;*/
   
   uint32_t result =  _linkLayer->transmitToServer((uint8_t *)snepResponse, SNEP_PDU_HEADER_LEN,true);    
      
@@ -126,3 +131,14 @@ uint32_t SNEP::receiveResponse(uint8_t *&data){
    return result; //error code from receiveFromClient 
   
 }
+/*
+SNEP_PDU::SNEP_PDU{
+  parameters[0] = 0;
+  parameters[1] = 0;
+  parameters[2] = 0;
+  parameters[3] = 0;
+  parameters[4] = 0;
+  parameters[5] = 0;
+}
+
+uint8_t SNEP_PDU:: set*/

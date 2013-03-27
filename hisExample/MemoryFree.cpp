@@ -1,3 +1,5 @@
+#include "MemoryFree.h"
+
 #if (ARDUINO >= 100)
 #include <Arduino.h>
 #else
@@ -21,8 +23,6 @@ struct __freelist {
 
 /* The head of the free list structure */
 extern struct __freelist *__flp;
-
-#include "MemoryFree.h";
 
 /* Calculates the size of the free list */
 int freeListSize() {

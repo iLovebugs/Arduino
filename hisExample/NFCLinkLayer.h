@@ -1,5 +1,6 @@
 #include "Arduino.h"
 #include "NFCReader.h"
+
 #ifndef NFC_LINK_LAYER_H
 #define NFC_LINK_LAYER_H
 
@@ -52,13 +53,6 @@ public:
    void setSSAP(uint8_t SSAP);
    void setPTYPE(uint8_t PTYPE);
    bool isConnectClientRequest();
-};
-
-struct CCPDU {
-  public:
-    uint8_t field[2];
-    uint8_t tlvField[7];
-    CCPDU();
 };
 
 class NFCLinkLayer {

@@ -4,7 +4,6 @@
 // authenticateBlock, readMemoryBlock, writeMemoryBlock contributed
 // by Seeed Technology Inc (www.seeedstudio.com)
 
-
 #include "Arduino.h"
 #include "NFCReader.h"
 

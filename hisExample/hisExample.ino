@@ -1,3 +1,4 @@
+
 #include "PN532.h"
 #include "NFCLinkLayer.h"
 #include "MemoryFree.h"
@@ -5,27 +6,22 @@
 #include "SNEP.h"
 #include <avr/power.h>
 #include <avr/sleep.h>
-/* //UNO
+ //UNO
 #define SCK 13
 #define MOSI 11
 #define SS 10
 #define MISO 12
-*/
-// MEGA
+
+/* // MEGA
 #define SCK 52
 #define MOSI 51
 #define SS 53
 #define MISO 50
-
+*/
 PN532 nfc(SCK, MISO, MOSI, SS);
 NFCLinkLayer linkLayer(&nfc);
 SNEP snep(&linkLayer);
-NDEFMessage ndefmessage();
-//NDEFPushProtocol nppLayer(&linkLayer);
-
-uint32_t retrieveTextPayload(uint8_t *NDEFMessage, uint8_t type, uint8_t *&payload, boolean &lastTextPayload);
-uint32_t retrieveTextPayloadFromShortRecord(uint8_t *NDEFMessage, uint8_t *&payload, boolean isIDLenPresent);
-uint32_t createNDEFShortRecord(uint8_t *message, uint8_t payloadLen, uint8_t *&NDEFMessage);
+NDEFMessage ndefmessage;
 
 // This message shall be used to rx or tx 
 // NDEF messages it shall never be released
@@ -36,9 +32,6 @@ uint8_t txNDEFMessage[MAX_PKT_HEADER_SIZE + MAX_PKT_PAYLOAD_SIZE];
 uint8_t *txNDEFMessagePtr; 
 uint8_t *rxNDEFMessagePtr; 
 uint8_t txLen;
-uint8_t requestType[5];
-uint8_t success;
-uint8_t *requestType_success;
 
 #define SHORT_RECORD_TYPE_LEN   0x0A
 #define NDEF_SHORT_RECORD_MESSAGE_HDR_LEN   0x03 + SHORT_RECORD_TYPE_LEN
@@ -57,7 +50,7 @@ void setup(void) {
     uint8_t message[33] = "01234";
     txNDEFMessagePtr = &txNDEFMessage[MAX_PKT_HEADER_SIZE];
     rxNDEFMessagePtr = &rxNDEFMessage[0];
-    txLen = createNDEFShortRecord(message, 5, txNDEFMessagePtr);    
+    txLen = ndefmessage.createNDEFShortRecord(message, 5, txNDEFMessagePtr);    
     
     if (!txLen)
     { 
@@ -117,7 +110,7 @@ void loop(void)
     {
         Serial.println(F("---- Begin Rx Loop ----"));
         //rxResult = nppLayer.rxNDEFPayload(rxNDEFMessagePtr);
-        rxResult = snep.receiveRequest(rxNDEFMessagePtr, (uint8_t *&)requestType);
+        rxResult = snep.receiveRequest(rxNDEFMessagePtr);
         
         
         
@@ -128,9 +121,8 @@ void loop(void)
       
         //txResult = nppLayer.pushPayload(txNDEFMessagePtr, txLen);
         //We succesfully recieved the SNEP message, 0x81 indicates success!
-        success = SNEP_SUCCESS;
-        requestType_success = &success;
-        txResult = snep.transmitResponse(txNDEFMessagePtr, txLen, requestType_success); //Why txLen!?
+
+        txResult = snep.transmitSuccess();
             
         if (RESULT_OK(rxResult))
         {
@@ -138,7 +130,6 @@ void loop(void)
            boolean lastPayload;
            uint8_t *ndefTextPayload;
            uint8_t len = ndefmessage.retrieveTextPayload(rxNDEFMessagePtr, ndefTextPayload, lastPayload);
-
            if (len) 
            {
                for (uint32_t i = 0; i < len ; ++i)

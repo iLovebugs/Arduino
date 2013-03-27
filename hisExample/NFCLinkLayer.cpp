@@ -326,18 +326,6 @@ void NFCLinkLayer::buildConnectPDU(PDU targetPayload)
   #endif
 }
 
-CCPDU::CCPDU()
-{
-  field[0] = 0;
-  field[1] = 0;
-  tlvField[0] = 0;
-  tlvField[1] = 0;
-  tlvField[2] = 0;
-  tlvField[3] = 0;
-  tlvField[4] = 0;
-  tlvField[5] = 0;
-  tlvField[6] = 0;
-}
 PDU::PDU() 
 {
    field[0] = 0;
