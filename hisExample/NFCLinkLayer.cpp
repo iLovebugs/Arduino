@@ -31,10 +31,10 @@ uint32_t NFCLinkLayer::openLinkToServer(boolean debug)
        return result;
    }
    
-   //What should we wait for her? A SYMMpdu?
+   //Recieving a SYMM PDU? Remove and test?!
   receivedPDU = ( PDU *) DataIn; 
   
-   if (!_nfcReader->targetRxData(DataIn, true)) // WHAT DO WE GET?
+   if (!_nfcReader->targetRxData(DataIn, true))  
    {
       if (debug)
       {
@@ -81,23 +81,22 @@ uint32_t NFCLinkLayer::openLinkToServer(boolean debug)
    
    return RESULT_SUCCESS;
 }
+
 // former closeNPPClientLink
-//Must be called after recieving SNEP response code. Cliten closes link!
+//Must be called after recieving SNEP response code. Client closes the link!
 uint32_t NFCLinkLayer::closeLinkToServer(){
   
-    /*
-     PDU disconnect;
-     disconnect.setDSAP(DSAP);
-     disconnect.setSSAP(SSAP);
-     disconnect.setPTYPE(DISCONNECT_PTYPE); // Want to disconnect?
-     
-     if (!_nfcReader->targetTxData((uint8_t *)&disconnect, 2)) 
-     {
-       Serial.println(F("Disconnect Failed."));
-       return false;   
-     }
-   */
-
+   PDU disconnect;
+   disconnect.setDSAP(DSAP);
+   disconnect.setSSAP(SSAP);
+   disconnect.setPTYPE(DISCONNECT_PTYPE); // Want to disconnect?
+   
+   if (!_nfcReader->targetTxData((uint8_t *)&disconnect, 2)) 
+   {
+     Serial.println(F("Disconnect Failed."));
+     return false;   
+   }
+   
 }
 
 // openNPPServerLink
@@ -183,8 +182,7 @@ uint32_t NFCLinkLayer::closeLinkToClient()
    return result;
 }
 // former serverLinkRxData
-uint32_t NFCLinkLayer::receiveFromClient(uint8_t *&Data, boolean debug)
-{
+uint32_t NFCLinkLayer::receiveFromClient(uint8_t *&Data, boolean debug){
   PDU targetPayload;
   uint32_t result;
   PDU *receivedPDU;
@@ -264,6 +262,12 @@ uint32_t NFCLinkLayer::transmitToServer(uint8_t *nppMessage, uint32_t len, boole
    {
       Serial.println(F("Sent NDEF Message"));
    } 
+   
+   
+   
+   //TODO: ADD ACK?!?
+   
+   
    return RESULT_SUCCESS;
 }
 
