@@ -1,4 +1,5 @@
 #include "NFCLinkLayer.h"
+#include "MemoryFree.h"
 
 #define NFCLinkLayerDEBUG 1
 
@@ -22,7 +23,7 @@ uint32_t NFCLinkLayer::openLinkToServer(boolean debug)
    
    if (debug)
    {
-      Serial.println(F("Opening NPP Client Link."));
+      Serial.println(F("Opening link to server."));
    }
    uint32_t result = _nfcReader->configurePeerAsTarget(NPP_CLIENT); // TG_INIT_AS_TARGET
 
@@ -43,7 +44,10 @@ uint32_t NFCLinkLayer::openLinkToServer(boolean debug)
       return CONNECT_RX_FAILURE;   
    }
 
-   buildConnectPDU(targetPayload); // built!
+   buildConnectPDU(&targetPayload); // built!
+   Serial.println("Connect PDU: ");
+   Serial.println(targetPayload.field[0], HEX);
+   Serial.println(targetPayload.field[1], HEX);
          
    //Copying Java-man, sedning a SYMM after we have sent a Connect-pdu.
    
@@ -53,7 +57,7 @@ uint32_t NFCLinkLayer::openLinkToServer(boolean debug)
         return CONNECT_TX_FAILURE;   
     }
     
-    buildSYMMPDU(targetPayload);
+    buildSYMMPDU(&targetPayload);
    
    result = _nfcReader -> targetTxData((uint8_t *)&targetPayload, SYMM_PDU_LEN);
    
@@ -70,7 +74,7 @@ uint32_t NFCLinkLayer::openLinkToServer(boolean debug)
    {
       if (debug)
       {
-         Serial.println(F("Connection Complete Failed."));
+         Serial.println(F("Connection Completely Failed."));
       }
       return UNEXPECTED_PDU_FAILURE;
    }
@@ -141,7 +145,7 @@ uint32_t NFCLinkLayer::openLinkToClient(boolean debug)
      }
    } while (!receivedPDU->isConnectClientRequest());
    
-   targetPayload = buildCCPDU(targetPayload, receivedPDU);
+   buildCCPDU(&targetPayload, receivedPDU);
  
    Serial.println(F("NFCLinkLayer::openLinkToClient: Trying to send Connection Complete PDU to peer."));
    if (IS_ERROR(_nfcReader->targetTxData((uint8_t *)&targetPayload, 2))) //change this 2 to a predefined value CC_LEN ? 
@@ -189,7 +193,7 @@ uint32_t NFCLinkLayer::receiveFromClient(uint8_t *&Data, boolean debug){
   
   receivedPDU = (PDU *)Data;
   
-  buildSYMMPDU(targetPayload);
+  buildSYMMPDU(&targetPayload);
    do{
        Serial.println(F("NFCLinkLayer::receiveFromClient: Trying to get Information-PDU!"));
        _nfcReader->targetTxData((uint8_t *)&targetPayload, 2);
@@ -245,7 +249,11 @@ uint32_t NFCLinkLayer::transmitToServer(uint8_t *nppMessage, uint32_t len, boole
        Serial.print(F(" "));
    }
    */
-    
+    if (debug)
+     {
+    Serial.print(F("<transmitToServer> Minne:"));
+    Serial.println(freeMemory());
+     }
    if (IS_ERROR(_nfcReader->targetTxData((uint8_t *)infoPDU, len + 3))) // Send the SNEP+PDU
    {
      if (debug)
@@ -274,51 +282,49 @@ inline bool PDU::isConnectClientRequest()
     return ((getPTYPE() == CONNECT_PTYPE));
 }
 
-void NFCLinkLayer::buildSYMMPDU(PDU targetPayload)
+void NFCLinkLayer::buildSYMMPDU(PDU *targetPayload)
 {
-  targetPayload.setDSAP(0x00);
-  targetPayload.setPTYPE(0x00);
-  targetPayload.setSSAP(0x00);
+  targetPayload->setDSAP(0x00);
+  targetPayload->setPTYPE(0x00);
+  targetPayload->setSSAP(0x00);
   
   #ifdef NFCLinkLayerDEBUG
   Serial.print("NFCLinkLayer::buildSYMMPDU: SYMMPDU: ");
-  Serial.print(targetPayload.getDSAP(), HEX);
+  Serial.print(targetPayload->getDSAP(), HEX);
   Serial.print(" ");
-  Serial.print(targetPayload.getPTYPE(), HEX);
+  Serial.print(targetPayload->getPTYPE(), HEX);
   #endif
 }
 
-PDU NFCLinkLayer::buildCCPDU(PDU targetPayload, PDU *receivedPDU)
+void NFCLinkLayer::buildCCPDU(PDU *targetPayload, PDU *receivedPDU)
 {
-   targetPayload.setDSAP(receivedPDU -> getSSAP());
-   targetPayload.setPTYPE(CONNECTION_COMPLETE_PTYPE);
-   targetPayload.setSSAP(receivedPDU -> getDSAP());
+   targetPayload->setDSAP(receivedPDU -> getSSAP());
+   targetPayload->setPTYPE(CONNECTION_COMPLETE_PTYPE);
+   targetPayload->setSSAP(receivedPDU -> getDSAP());
    
    #ifdef NFCLinkLayerDEBUG
    Serial.print("NFCLinkLayer::buildCCPDU: CCPDU: ");
-   Serial.print(targetPayload.getDSAP(), HEX);
+   Serial.print(targetPayload->getDSAP(), HEX);
    Serial.print(" ");
-   Serial.print(targetPayload.getPTYPE(), HEX);
+   Serial.print(targetPayload->getPTYPE(), HEX);
    Serial.print(" ");
-   Serial.println(targetPayload.getSSAP(), HEX);
+   Serial.println(targetPayload->getSSAP(), HEX);
    #endif
-   
-   return targetPayload;
 }
 
-void NFCLinkLayer::buildConnectPDU(PDU targetPayload)
+void NFCLinkLayer::buildConnectPDU(PDU *targetPayload)
 {
-  targetPayload.setDSAP(SNEP_CLIENT);
-  targetPayload.setPTYPE(CONNECT_PTYPE);
-  targetPayload.setSSAP(0x20);
+  targetPayload->setDSAP(SNEP_CLIENT);
+  targetPayload->setPTYPE(CONNECT_PTYPE);
+  targetPayload->setSSAP(0x20);
   
   #ifdef NFCLinkLayerDEBUG
   Serial.print("NFCLinkLayer::buildConnectPDU: ConnectPDU: ");
-  Serial.print(targetPayload.getDSAP(), HEX);
+  Serial.print(targetPayload->getDSAP(), HEX);
   Serial.print(" ");
-  Serial.print(targetPayload.getPTYPE(), HEX);
+  Serial.print(targetPayload->getPTYPE(), HEX);
   Serial.print(" ");
-  Serial.println(targetPayload.getSSAP(), HEX);
+  Serial.println(targetPayload->getSSAP(), HEX);
   #endif
 }
 

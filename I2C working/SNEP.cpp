@@ -26,8 +26,7 @@ uint32_t SNEP::receiveRequest(uint8_t *&data){
           Serial.print(F("SNEP>receiveData: Recieved an SNEP message of an unsupported version: "));
           Serial.println(data[0]);
           return SNEP_UNSUPPORTED_VERSION;
-      }
-      //_linkLayer->closeLinkToClient(); //Recieve a DISC pdu, Client tears down the connection.
+      }     
       
       // Manage the request that was sent as argument
 
@@ -67,7 +66,7 @@ uint32_t SNEP::transmitSuccess(){
   snepResponse->type = SNEP_SUCCESS;
   snepResponse->length = 0;*/
   
-  uint32_t result =  _linkLayer->transmitToServer((uint8_t *)snepResponse, SNEP_PDU_HEADER_LEN,true);    
+  uint32_t result =  _linkLayer->transmitToServer((uint8_t *)snepResponse, SNEP_PDU_HEADER_LEN,false);    
      
   _linkLayer->closeLinkToClient(); //Recieve a DISC pdu, Client tears down the connection. TODO: ADD TEST IF DISC?
   
@@ -90,9 +89,8 @@ uint32_t SNEP::transmitPutRequest(uint8_t *NDEFMessage, uint32_t length){
   //if data-link was succesfully established continue, else abort.
   if(RESULT_OK(result)){
        
-      //If a data-link was established send the request, else abort.
-          SNEP_PDU *snepRequest;
-          snepRequest = (SNEP_PDU *) ALLOCATE_HEADER_SPACE(NDEFMessage, SNEP_PDU_HEADER_LEN);          
+      //If a data-link was established send the request, else abort.   
+          SNEP_PDU *snepRequest = (SNEP_PDU *) ALLOCATE_HEADER_SPACE(NDEFMessage, SNEP_PDU_HEADER_LEN);          
           snepRequest -> version =  SNEP_SUPPORTED_VERSION;
           snepRequest -> type = SNEP_PUT_REQUEST;
           snepRequest -> length = length;

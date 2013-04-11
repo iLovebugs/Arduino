@@ -11,8 +11,8 @@
 #define PN532PRINTRESPONSE
 #define getFirmwareVersionDEBUG
 #define sendFrameDEBUG
-#define fetchCheckAckDEBUG
-#define fetchdataDEBUG
+//#define fetchCheckAckDEBUG
+//#define fetchdataDEBUG
 
 uint8_t pn532ack[] = {
   0x00, 0x00, 0xFF, 0x00, 0xFF, 0x00};
@@ -46,7 +46,7 @@ void PN532::initializeReader()
   Wire.begin(); // Joining I2C buss as master
 }
 
-    uint32_t PN532::SAMConfig() 
+uint32_t PN532::SAMConfig() 
     {
       #ifdef PN532DEBUG
         Serial.println(F("<SAMconfig>"));
@@ -265,10 +265,12 @@ uint32_t PN532::targetRxData(uint8_t *DataIn)
   return (GEN_ERROR | response->data[0]);
 }
 
-    uint32_t PN532::targetTxData(uint8_t *DataOut, uint32_t dataSize)
+uint32_t PN532::targetTxData(uint8_t *DataOut, uint32_t dataSize)
     {
       #ifdef PN532DEBUG
         Serial.println(F("<targetTxData>"));
+    Serial.print(F("<targetTxData> Minne:"));
+    Serial.println(freeMemory());
       #endif
       
       ///////////////////////////////////// Sending to Initiator ///////////////////////////
@@ -331,6 +333,10 @@ boolean debug)
   if(debug)
     Serial.println(F("<sendCommandCheckAck>"));
 
+  #ifdef PN532DEBUG  
+    Serial.print(F("<sendCommandCheckAck> Minne:"));
+    Serial.println(freeMemory());
+  #endif 
   // send the command frame
   sendFrame(cmd, cmdlen);
 
@@ -348,18 +354,19 @@ boolean debug)
   return RESULT_SUCCESS; // ack'd command
 }
 
-    void PN532::sendFrame(uint8_t* cmd, uint8_t cmdlen)
+void PN532::sendFrame(uint8_t* cmd, uint8_t cmdlen)
     {
       #ifdef PN532DEBUG
-        Serial.print(F("<sendFrame>"));
+        Serial.println(F("<sendFrame>"));
       #endif
       
       uint8_t checksum;
     
       //Increasing the cmdlen to include the TFI (Direction)
       cmdlen++;
+ 
+      //delay(20);                               // or whatever the delay is for waking up the board  
     
-      delay(2);                               // or whatever the delay is for waking up the board    
       Wire.beginTransmission(PN532_I2C_ADDRESS);
     
       // Make whole frame  
@@ -367,19 +374,25 @@ boolean debug)
       Wire.write(PN532_STARTCODE1);
       Wire.write(PN532_STARTCODE2);
     
+    #ifdef sendFrameDEBUG
+        Serial.println(F("<sendFrame> between 2>"));
+    Serial.print(F("<sendFrame> Minne:"));
+    Serial.println(freeMemory());
+    #endif
       Wire.write(cmdlen);                   //LEN
       uint8_t cmdlen_1 = ~cmdlen + 1;       //calculating the two's complement of cmdlen is used as the LCS
       Wire.write(cmdlen_1);		        //LCS        
       Wire.write(PN532_HOSTTOPN532);        //TFI 
     
       checksum += PN532_HOSTTOPN532;         
+      
     
-    #ifdef sendFrameDEBUG 
+    #ifdef sendFrameDEBUG
       Serial.print(F("<sendFrame>: Sending: "));
       Serial.print(F(" 0x")); 
       Serial.print(PN532_PREAMBLE, HEX);
       Serial.print(F(" 0x")); 
-      Serial.print(PN532_PREAMBLE, HEX);
+      Serial.print(PN532_STARTCODE1, HEX);
       Serial.print(F(" 0x")); 
       Serial.print(PN532_STARTCODE2, HEX);
       Serial.print(F(" 0x")); 
@@ -419,7 +432,7 @@ boolean debug)
       Wire.endTransmission(); // Nu datan faktiskt sänds iväg     
     }
     
-    boolean PN532::fetchCheckAck(uint16_t timeout)
+boolean PN532::fetchCheckAck(uint16_t timeout)
     {
       #ifdef PN532DEBUG
         Serial.println(F("<fetchCheckAck>"));
@@ -474,7 +487,7 @@ boolean debug)
 
 
 //Bryter isär svaret fr�n PN532 
-    uint32_t PN532::fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *response) 
+uint32_t PN532::fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *response) 
     {
     
       #ifdef PN532DEBUG

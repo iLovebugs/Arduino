@@ -5,6 +5,7 @@
 // by Seeed Technology Inc (www.seeedstudio.com)
 
 #include "Arduino.h"
+#include "MemoryFree.h"
 #include "NFCReader.h"
 #include <avr/sleep.h>
 #include <avr/power.h>

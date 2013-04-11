@@ -19,12 +19,10 @@
 
 #define SERVICE_NAME_PARAM_TYPE      0x06
 
-#define CONNECT_SERVICE_NAME_LEN     0x0F
-#define CONNECT_SERVICE_NAME         "com.android.npp"
 
 #define SNEP_CLIENT                  0x04
 
-#define CONNECT_SERVER_PDU_LEN       CONNECT_SERVICE_NAME_LEN + 4
+#define CONNECT_SERVER_PDU_LEN       0x02
 #define SYMM_PDU_LEN                 0x02
 
 
@@ -42,7 +40,7 @@ public:
    uint8_t field[2]; 
    PARAMETER_DESCR  params;
 
-
+   //Functions:
    PDU();
    
    uint8_t getDSAP();
@@ -72,9 +70,9 @@ private:
    NFCReader *_nfcReader;
    uint8_t DSAP;
    uint8_t SSAP;
-   PDU buildCCPDU(PDU targetPayload, PDU *receivedPDU);
-   void buildConnectPDU(PDU targetPayload);
-   void buildSYMMPDU(PDU targetPayload);
+   void buildCCPDU(PDU *targetPayload, PDU *receivedPDU);
+   void buildConnectPDU(PDU *targetPayload);
+   void buildSYMMPDU(PDU *targetPayload);
 };
 
 
