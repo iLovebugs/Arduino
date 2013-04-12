@@ -241,7 +241,7 @@ uint32_t PN532::targetRxData(uint8_t *DataIn)
   pn532_packetbuffer[0] = PN532_TGGETDATA;
   uint32_t result = sendCommandCheckAck(pn532_packetbuffer, 1, 1000);
   if (IS_ERROR(result)) {
-    //Serial.println(F("SendCommandCheck Ack Failed"));
+    Serial.println(F("SendCommandCheck Ack Failed"));
     return NFC_READER_COMMAND_FAILURE;
   }
 
@@ -252,6 +252,7 @@ uint32_t PN532::targetRxData(uint8_t *DataIn)
 
   if (IS_ERROR(result))
   {
+    Serial.println(F("fetchResponse Failed"));
     return NFC_READER_RESPONSE_FAILURE;
   }
 
@@ -262,6 +263,7 @@ uint32_t PN532::targetRxData(uint8_t *DataIn)
     return ret_len;
   }
 
+  Serial.println(F("targetRxData Ack Failed"));
   return (GEN_ERROR | response->data[0]);
 }
 
@@ -549,8 +551,8 @@ uint32_t PN532::fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *response)
     
         if (RESULT_OK(retVal) && postamble != 0x00) 
         {
-          retVal = INVALID_POSTAMBLE;
           Serial.println(F("Invalid Postamble."));
+          retVal = INVALID_POSTAMBLE;
         }       
       }
     

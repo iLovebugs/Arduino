@@ -41,10 +41,10 @@ void setup(void) {
     Serial.println("Hello!");
 
 
-    uint8_t message[33] = "01234";
+    uint8_t message[12] = "TE01100    ";
     txNDEFMessagePtr = &txNDEFMessage[MAX_PKT_HEADER_SIZE];
     rxNDEFMessagePtr = &rxNDEFMessage[0];
-    txLen = ndefmessage.createNDEFShortRecord(message, 5, txNDEFMessagePtr);    
+    txLen = ndefmessage.createNDEFShortRecord(message, 11, txNDEFMessagePtr);    
     
     if (!txLen)
     { 
@@ -89,9 +89,10 @@ void loop(void)
     uint32_t txResult = GEN_ERROR;
     rxNDEFMessagePtr = &rxNDEFMessage[0];
     
+    // Print out the made NDEF-message
     uint8_t *buf = (uint8_t *) txNDEFMessagePtr;
     Serial.println(F("NDEF Message")); 
-    for (uint16_t i = 0; i < txLen; ++i)
+    for (uint16_t i = 0; i < txLen; i++)
     {
         Serial.print(F("0x")); 
         Serial.print(buf[i], HEX);
@@ -102,13 +103,21 @@ void loop(void)
      
     do 
     {
+      Serial.println(F("--------------------Loop--------------------"));
+   /* This is good   
+      //Sending LOCK id AND public key.
+      
         Serial.println(F("Send message"));
         txResult = snep.transmitPutRequest(txNDEFMessagePtr, txLen);
         Serial.println(F("Message sent"));
         
-        /*
-        
-        Serial.println(F("---- Loop: Begin Rx Loop ----"));
+      //Success (Hopefully!)  
+        Serial.println(F("Send message"));
+        rxResult = snep.receiveResponse(rxNDEFMessagePtr);
+        Serial.println(F("Message sent"));
+   */     
+            
+        Serial.println(F("Begin Rx"));
         rxResult = snep.receiveRequest(rxNDEFMessagePtr);
         
         
@@ -133,7 +142,7 @@ void loop(void)
                Serial.println();
                Serial.println((char *) ndefTextPayload);
            }
-           /*
+           
             txNDEFMessagePtr = &txNDEFMessage[MAX_PKT_HEADER_SIZE];
             rxNDEFMessagePtr = &rxNDEFMessage[0]; //Why RX here?
             txLen = ndefmessage.createNDEFShortRecord(ndefTextPayload, len, txNDEFMessagePtr);   
@@ -151,10 +160,10 @@ void loop(void)
 
     Serial.print(F("<Setup> Minne:"));
     Serial.println(freeMemory());
-        txResult = snep.transmitSuccess();
+    txResult = snep.transmitSuccess();
             
     Serial.println("transmitted :)))))))))))))))))");
- */
+ 
         if (txResult == SEND_COMMAND_RX_TIMEOUT_ERROR)
         {
            break;

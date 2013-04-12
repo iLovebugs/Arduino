@@ -58,9 +58,9 @@ uint32_t SNEP::transmitSuccess(){
  
   // Incapsulate the NDEF message into a SNEP response message
   // TODO METODER FÖR ATT TILLDELA SKIT!
-  snepResponse-> parameters[0] = SNEP_SUPPORTED_VERSION;
-  snepResponse-> parameters[1] = SNEP_SUCCESS;
-  snepResponse-> parameters[5] = 0;
+  snepResponse-> version = SNEP_SUPPORTED_VERSION;
+  snepResponse-> type = SNEP_SUCCESS;
+  snepResponse-> length = 0;                                    // ********************************************************** Här är något fel kanske med length eller SNEP_PDU_HEADER_LEN******************************
   /*
   snepResponse->version = SNEP_SUPPORTED_VERSION;
   snepResponse->type = SNEP_SUCCESS;
@@ -79,7 +79,7 @@ uint32_t SNEP::transmitSuccess(){
 //            request[0] is the the SNEP request type and request[1] is the acceptable length if SNEP request type is Get
 // Returns the length of the received NDEF message
 //why *& as argument?
-uint32_t SNEP::transmitPutRequest(uint8_t *NDEFMessage, uint32_t length){
+uint32_t SNEP::transmitPutRequest(uint8_t *NDEFMessage, uint8_t length){
   
   uint32_t result;
   
@@ -89,11 +89,11 @@ uint32_t SNEP::transmitPutRequest(uint8_t *NDEFMessage, uint32_t length){
   //if data-link was succesfully established continue, else abort.
   if(RESULT_OK(result)){
        
-      //If a data-link was established send the request, else abort.   
+          //Build SNEP frame   
           SNEP_PDU *snepRequest = (SNEP_PDU *) ALLOCATE_HEADER_SPACE(NDEFMessage, SNEP_PDU_HEADER_LEN);          
           snepRequest -> version =  SNEP_SUPPORTED_VERSION;
           snepRequest -> type = SNEP_PUT_REQUEST;
-          snepRequest -> length = length;
+          snepRequest -> length = 0x0000 + length;
          
           //caller must check the result
           result = _linkLayer -> transmitToServer((uint8_t *)snepRequest, length + SNEP_PDU_HEADER_LEN, true);
