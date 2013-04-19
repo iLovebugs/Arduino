@@ -82,6 +82,13 @@ private:
    void buildDMPDU(PDU *targetPayload);
    void increaceSendWindow();
    void increaceReceiveWindow();
+   
+   boolean isCCPDU(PDU *targetPayload);
+   boolean isConnectPDU(PDU *targetPayload);
+   boolean isSYMMPDU(PDU *targetPayload);
+   boolean isDISCPDU(PDU *targetPayload);
+   boolean isRRPDU(PDU *targetPayload);
+   boolean isDMPDU(PDU *targetPayload);
 };
 
 

@@ -24,13 +24,12 @@ class SNEP{
     ~SNEP();
     
     // When a link to a client is established
-    uint32_t receiveRequest(uint8_t *&NDEFMessage);
-    uint32_t transmitSuccess();
+    uint32_t receivePutRequest(uint8_t *&NDEFMessage);
+    uint32_t transmitSuccessAndTerminateSession(uint8_t *buffer);
     
     // When a link to a server is established
     uint32_t transmitPutRequest(uint8_t *NDEFMessage, uint8_t len);
-    uint32_t receiveResponse(uint8_t *&NDEFMessage);
-    uint32_t transmitFAIL(uint8_t *NDEFMessage, uint8_t length);
+    uint32_t receiveSuccessAndTerminateSession(uint8_t *&NDEFMessage);
     
   private:
     NFCLinkLayer *_linkLayer;

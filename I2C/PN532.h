@@ -8,7 +8,6 @@
 #include "MemoryFree.h"
 #include "NFCReader.h"
 #include <avr/sleep.h>
-#include <avr/power.h>
 
 #define PN532_PREAMBLE 0x00
 #define PN532_STARTCODE1 0x00
@@ -111,6 +110,12 @@ struct PN532_CMD_RESPONSE {
    
 };
 
+
+    void wakeUpFunction();
+    void sleepTight();
+
+
+
 class PN532 : public NFCReader{
 public:
     PN532(uint8_t irq, uint8_t reset);
@@ -119,7 +124,7 @@ public:
     uint32_t SAMConfig();    
     uint32_t getFirmwareVersion();
      
-    uint32_t configurePeerAsTarget(uint8_t type); 
+    uint32_t configurePeerAsTarget(boolean sleep = false); 
  /* 
     uint32_t getTargetStatus(uint8_t *response);
 */
@@ -137,7 +142,7 @@ uint32_t getGeneralStatus();
     
     boolean isTargetReleasedError(uint32_t result);
     
-    void clearBuffer();     
+    void clearBuffer();
 
 private:
     uint8_t _irq, _reset;
@@ -149,6 +154,8 @@ private:
     void sendFrame(uint8_t* cmd, uint8_t cmdlen);
     void wiresend(uint8_t c);
     uint8_t wirerecv(void);
+
+
 };
 
 

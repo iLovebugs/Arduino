@@ -6,11 +6,10 @@ _linkLayer(linkLayer){
 
 SNEP::~SNEP(){
 }
-// Receives a SNEP request from the client. 
+// Receives a SNEP put request from the client. 
 // Arguments: data will be set to point to the received NDEF message
-//            request[0] will be set the the SNEP request type and request[1] will be set to acceptable length if SNEP request type is Get
 // Returns the length of the received NDEF message
-uint32_t SNEP::receiveRequest(uint8_t *&data){
+uint32_t SNEP::receivePutRequest(uint8_t *&data){
 
   //Act as server, acts as the SNEP server process present on NFC-enabled devices.
   uint32_t result = _linkLayer->openLinkToClient(true);
@@ -48,51 +47,25 @@ uint32_t SNEP::receiveRequest(uint8_t *&data){
   }
   return result;
 }
-// Transmits a SNEP response to the client. A link must have been established before this function is called
-// Arguments: NDEFMessage is the NDEF message to be sent
-//            length is the length of the NDEF message to be sent
-//            response is the response type to be used
+// Transmits a SNEP success PDU to the client. A link must have been established before this function is called
+// Arguments: buffer is the buffer used to build the message to transmit.
 // Returns the length of the received NDEF message
-uint32_t SNEP::transmitSuccess(){
-  SNEP_PDU snepResponse;
-
-  // Incapsulate the NDEF message into a SNEP response message
-  // TODO METODER FÖR ATT TILLDELA SKIT!
-  snepResponse.version = SNEP_SUPPORTED_VERSION;
-  snepResponse.type = SNEP_SUCCESS;
-  snepResponse.nothing[0] = 0;
-  snepResponse.nothing[1] = 0;
-  snepResponse.nothing[2] = 0;
-  snepResponse.length = 0;                                   
-  /*
-  snepResponse->version = SNEP_SUPPORTED_VERSION;
-   snepResponse->type = SNEP_SUCCESS;
-   snepResponse->length = 0;*/
-  uint32_t result = _linkLayer->transmitSNEP((uint8_t *) &snepResponse, SNEP_PDU_HEADER_LEN,true);    
-
-  _linkLayer->closeLinkToClient(); //Recieve a DISC pdu, Client tears down the connection. TODO: ADD TEST IF DISC?
-
-  return result;  
-}
-uint32_t SNEP::transmitFAIL(uint8_t *NDEFMessage, uint8_t length){
-  SNEP_PDU *snepResponse = (SNEP_PDU *) ALLOCATE_HEADER_SPACE(NDEFMessage, SNEP_PDU_HEADER_LEN);
-
-  // Incapsulate the NDEF message into a SNEP response message
-  // TODO METODER FÖR ATT TILLDELA SKIT!
+uint32_t SNEP::transmitSuccessAndTerminateSession(uint8_t *buffer){
+  SNEP_PDU *snepResponse = (SNEP_PDU *) ALLOCATE_HEADER_SPACE(buffer, SNEP_PDU_HEADER_LEN);
+  uint32_t result;
+  
+  // Incapsulate the NDEF message(which does not exist) into a SNEP response message
   snepResponse->version = SNEP_SUPPORTED_VERSION;
   snepResponse->type = SNEP_SUCCESS;
   snepResponse->nothing[0] = 0;
   snepResponse->nothing[1] = 0;
   snepResponse->nothing[2] = 0;
-  snepResponse->length = 0;                                   
-  /*
-  snepResponse->version = SNEP_SUPPORTED_VERSION;
-   snepResponse->type = SNEP_SUCCESS;
-   snepResponse->length = 0;*/
-  uint32_t result = _linkLayer->transmitSNEP((uint8_t *)snepResponse, SNEP_PDU_HEADER_LEN,true);    
-
-  _linkLayer->closeLinkToClient(); //Recieve a DISC pdu, Client tears down the connection. TODO: ADD TEST IF DISC?
-
+  snepResponse->length = 0;                  
+  
+  result = _linkLayer->transmitSNEP((uint8_t *)snepResponse, SNEP_PDU_HEADER_LEN, true);    
+  if(RESULT_OK(result)){
+    result = _linkLayer->closeLinkToClient(); //Recieve a DISC pdu, Client tears down the connection. TODO: ADD TEST IF DISC?
+  }
   return result;  
 }
 
@@ -129,7 +102,7 @@ uint32_t SNEP::transmitPutRequest(uint8_t *NDEFMessage, uint8_t length){
 // Arguments: data will be set to point to the received NDEF message
 //            responseType is the response type of the received NDEF message
 // Returns the length of the received NDEF message
-uint32_t SNEP::receiveResponse(uint8_t *&data){
+uint32_t SNEP::receiveSuccessAndTerminateSession(uint8_t *&data){
 
   uint32_t result = _linkLayer->receiveSNEP(data,true);
 
@@ -141,19 +114,13 @@ uint32_t SNEP::receiveResponse(uint8_t *&data){
       return SNEP_UNSUPPORTED_VERSION;     
     }
 
-    if(data[1] == SNEP_SUCCESS){
-      
-          
-      _linkLayer -> closeLinkToServer(); 
-      return 0; //in all other cases there is no information present, return 0.
-
-
+    if(data[1] != SNEP_SUCCESS){
+      return SNEP_UNEXPECTED_RESPONSE; //In case of Reject or Continue
     }
-    else //In case of Reject or Continue
-    return SNEP_UNEXPECTED_RESPONSE;      
+      result = _linkLayer -> closeLinkToServer();   
   } 
 
-  return result; //error code from receiveFromClient 
+  return result;
 
 }
 /*

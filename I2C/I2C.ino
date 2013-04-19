@@ -1,4 +1,10 @@
 
+
+////////////////////////////////////////////////
+////////  Lägga till kontroll av frames runtime. 
+
+///////// Denna koden fungera inte. Antagligen för att det blir galet med configurePeerAstarget nu. Ärver från reader och tar enbart ett argument i PN532.
+
 #include <Wire.h>
 #include "PN532.h"
 #include "NFCLinkLayer.h"
@@ -8,9 +14,9 @@
 #include <avr/sleep.h>
 #include <avr/tools.h>
 
-#define wakePin  2
 #define _irq  2
 #define _reset  3
+#define _lock  8
 
 PN532 nfc(_irq, _reset);
 NFCLinkLayer linkLayer(&nfc);
@@ -25,183 +31,271 @@ uint8_t rxNDEFMessage[MAX_PKT_HEADER_SIZE + MAX_PKT_PAYLOAD_SIZE];
 uint8_t txNDEFMessage[MAX_PKT_HEADER_SIZE + MAX_PKT_PAYLOAD_SIZE];
 uint8_t *txNDEFMessagePtr; 
 uint8_t *rxNDEFMessagePtr; 
+ uint8_t *ndefTextPayload;
 uint8_t txLen;
-uint8_t retard[30];
 
+
+uint32_t receiveResult; 
+uint32_t transmitResult;
+
+boolean tryAgain;
+		
 #define SHORT_RECORD_TYPE_LEN   0x0A
 #define NDEF_SHORT_RECORD_MESSAGE_HDR_LEN   0x03 + SHORT_RECORD_TYPE_LEN
 #define TYPE_STR "text/plain"
 
-/*
-TODO: COPY JAVA MAN REVIEVING PROCEDURE!!!
-MUST FIX SEQUENCE NUMBERS. ADDED NEW VARIABLE FOR THIS PURPOSE. HANDLE AS SSAP AND DSAP.
-LASTLY, FIX STRANGE BUG!!!
-*/
-
-void phoneInRange()
-{
-  //sleep_disable(); // Prevents the arduino from going to sleep if it was about too. 
-}
+// When arduino has woken up this function will be executed
 
 void setup(void) {
-    Serial.begin(9600);
-    Serial.println("Hello!");
+		Serial.begin(9600);
+		Serial.println("Hello!");
+		
+		//////////////////////////////////////////////
+		/////Setting sleep mode parameters
 
-
-    uint8_t message[12] = "TE01100    ";
-    txNDEFMessagePtr = &txNDEFMessage[MAX_PKT_HEADER_SIZE];
-    rxNDEFMessagePtr = &rxNDEFMessage[0];
-    txLen = ndefmessage.createNDEFShortRecord(message, 11, txNDEFMessagePtr);    
-    
-    if (!txLen)
-    { 
-        Serial.println("Failed to create NDEF Message.");
-        while(true); //halt
-    }
-    
-    
-    nfc.initializeReader();
-    
-    uint32_t versiondata = nfc.getFirmwareVersion();
-    if (! versiondata) {
-        Serial.print("Didn't find PN53x board");
-        while (1); // halt
-    }
-    
-    // set power sleep mode
-    set_sleep_mode(SLEEP_MODE_ADC);
-
-    // configure board to read RFID tags and cards
-    nfc.SAMConfig();
-    //nfc.configurePeerAsTarget(NPP_SERVER);
-    attachInterrupt(0, phoneInRange, FALLING);
-    
-    Serial.print(F("Minne:"));
-    Serial.println(freeMemory());
+		
+		// initiate pointers and variables
+		txNDEFMessagePtr = &txNDEFMessage[MAX_PKT_HEADER_SIZE];
+		rxNDEFMessagePtr = &rxNDEFMessage[0];  
+		tryAgain = false;
+		
+		// initiate PN532
+		nfc.initializeReader();
+		
+		// check if board exists
+		uint32_t versiondata = nfc.getFirmwareVersion();
+		if (! nfc.getFirmwareVersion()) {
+				Serial.print("Didn't find PN53x board");
+				while (1); // halt
+		}
+		 
+		pinMode(_irq,INPUT);
+		pinMode(_lock,OUTPUT);
+		
+		// configure board to read RFID tags and cards
+		nfc.SAMConfig();
+		//nfc.configurePeerAsTarget(true);
+		
+		Serial.print(F("Minne:"));
+		Serial.println(freeMemory());
 }
 
 
 void loop(void) 
 {
-   Serial.println();
-   Serial.println(F("---------------- LOOP ----------------------"));
-   Serial.println();
+	while(true){
+	 Serial.println();
+	 Serial.println(F("---------------- LOOP ----------------------"));
+	 Serial.println();
+			
+			digitalWrite(_lock, LOW); 
+			if(tryAgain == false){
+				Serial.println(F("----- Computing keys and creates a NDEF-message"));
+				//////////////////////////////////
+				//Compute public and private key//
+				//////////////////////////////////
+				 
+				
+				//Move to setup, this is lock id that is not changed.
+				uint8_t message[12] = "TE01100    ";
+				txNDEFMessagePtr = &txNDEFMessage[MAX_PKT_HEADER_SIZE];
+				rxNDEFMessagePtr = &rxNDEFMessage[0];
+				txLen = ndefmessage.createNDEFShortRecord(message, 11, txNDEFMessagePtr);
+				if(!txLen){ 
+						Serial.println("----- Failed to create NDEF Message.");
+						break;
+				} 
+			}else{
+				Serial.println(F("----- Tries to complete the process with the same keys as before"));
+			}
+			
+			tryAgain = true;
+			
+				// Print out the created NDEF-message
+				uint8_t *buf = (uint8_t *) txNDEFMessagePtr;
+				Serial.println(F("NDEF Message")); 
+				for (uint16_t i = 0; i < txLen; i++)
+				{
+						Serial.print(F("0x")); 
+						Serial.print(buf[i], HEX);
+						Serial.print(" ");
+				}
+				
+				////////////////////////////////////////////////////////////////////////////
+				/////Send LOCK id and public key to NFC-device.
+			
+				Serial.println(F("\n----- Transmit request"));
+				
+				////////////////////////////////////////////////////////////////////////////
+				////Handle sending and receiveing ART frames
 
-    uint32_t rxResult = GEN_ERROR; 
-    uint32_t txResult = GEN_ERROR;
-    rxNDEFMessagePtr = &rxNDEFMessage[0];
-    
-    // Print out the made NDEF-message
-    uint8_t *buf = (uint8_t *) txNDEFMessagePtr;
-    Serial.println(F("NDEF Message")); 
-    for (uint16_t i = 0; i < txLen; i++)
-    {
-        Serial.print(F("0x")); 
-        Serial.print(buf[i], HEX);
-        Serial.print(" ");
-    }
-    
-    Serial.println();
-     
-    do 
-    {
-      Serial.println(F("--------------------Loop--------------------"));
-     
-      //Sending LOCK id AND public key.
-      
-        Serial.println(F("----- Transmit request"));
-        txResult = snep.transmitPutRequest(txNDEFMessagePtr, txLen);
-        Serial.println(F("----- Request transmitted\n"));
-        
-        //Success (Hopefully!)  
-        Serial.println(F("----- Receive response"));
-        rxResult = snep.receiveResponse(rxNDEFMessagePtr);
-        Serial.println(F("----- Response received\n"));
-      
-      
-      delay(5000);
-       
-        // Receive encrypted message
-        Serial.println(F("----- Receive request"));
-        rxResult = snep.receiveRequest(rxNDEFMessagePtr);
-        Serial.println(F("----- Request received\n"));       
-        
-        if (rxResult == SEND_COMMAND_RX_TIMEOUT_ERROR)
-        {
-           break;
-        }
-        // Print out data!
-        if (RESULT_OK(rxResult))
-        {
-           Serial.println(F("Loop: Recevied data:"));
-           boolean lastPayload;
-           uint8_t *ndefTextPayload;
-           uint8_t len = ndefmessage.retrieveTextPayload(rxNDEFMessagePtr, ndefTextPayload, lastPayload);
-           if (len) 
-           {
-               for (uint32_t i = 0; i < len ; ++i)
-               {  
-                   Serial.print("0x"); Serial.print(ndefTextPayload[i], HEX); Serial.print(" ");
-               }
-               Serial.println();
-               Serial.println((char *) ndefTextPayload);
-           }
-           
-        }
-      
-        //We succesfully recieved the SNEP message, 0x81 indicates success!
+				Serial.println(F("Staring sending procedure"));
+			 
+				///////////////////////////////////////////////////////////////////////////
+				////Establish a LLC datalink connection and send a SNEP message.
+				
+				transmitResult = snep.transmitPutRequest(txNDEFMessagePtr, txLen);
+				if(IS_ERROR(transmitResult)){
+					Serial.print(F("----- The SNEP put request could not be sent due to error: 0x"));
+					Serial.println(transmitResult, HEX);
+					break;
+				}else
+					Serial.println(F("----- Request transmitted\n"));
+					
+				////////////////////////////////////////////////////////////////////////////
+				/////Receive a SNEP Success PDU from the NFC-device and close the session.
+				
+				Serial.println(F("----- Receive response"));
+				receiveResult = snep.receiveSuccessAndTerminateSession(rxNDEFMessagePtr);
+				if(IS_ERROR(receiveResult)){
+					Serial.print(F("----- The SNEP success message could not be received due to error: 0x"));
+					Serial.println(transmitResult, HEX);
+					break;
+				}else
+					Serial.println(F("----- Response received\n"));
+					Serial.println(transmitResult, HEX);
+			
+			
+				Serial.println(F("----- DELAY 5000\n"));
+				delay(5000);
+				
+				////////////////////////////////////////////////////////////////////////////
+				///// Receive an encrypted message from the NFC-device
+				///////////////////////////////////////////////////////////////////////////
+							 
+				
+				Serial.println(F("----- Receive request"));
+				
+				 ////////////////////////////////////////////////////////////////////////////
+				////Handle sending and receiveing ART frames
+				
+				Serial.println(F("Staring recieving procedure"));
+				
+				/////////////////////////////////////////////////////////////////////////////
+				////Establishes a datalink connection with NFC device. Recieves an NDEF message.        
+				
+				receiveResult = snep.receivePutRequest(rxNDEFMessagePtr);
+			 if(IS_ERROR(receiveResult)){
+					Serial.print(F("----- The SNEP put request could not be received due to error: 0x"));
+					Serial.println(transmitResult, HEX);
+					break;
+				}else
+					Serial.println(F("----- Request received\n"));
+					
+					
+					//////////////////////////////////////////////////////////////////////////
+					/////Decrypt key          
+					
+				// Print out the decrypted message!
+				if (RESULT_OK(receiveResult))
+				{
+					 Serial.println(F("----- Recevied data:"));
+					 boolean lastPayload;
+					
+					 uint8_t len = ndefmessage.retrieveTextPayload(rxNDEFMessagePtr, ndefTextPayload, lastPayload);
+					 if (len) 
+					 {
+							 for (uint32_t i = 0; i < len +1 ; ++i)
+							 {  
+									 Serial.print("0x"); Serial.print(ndefTextPayload[i], HEX); Serial.print(" ");
+							 }
+							 Serial.println();
+							 Serial.println((char *) ndefTextPayload);
+					 }           
+				}
+			
 
-    Serial.print(F("<Setup> Minne:"));
-    Serial.println(freeMemory());
-    //txResult = snep.transmitSuccess();
-    
-    uint8_t *fail = retard;
-    txResult = snep.transmitFAIL(fail, 0);
-            
-    Serial.println(F("hej!"));
- 
-        if (txResult == SEND_COMMAND_RX_TIMEOUT_ERROR)
-        {
-           break;
-        }
-        Serial.print(F("Loop: Result: 0x"));
-        Serial.print(rxResult, HEX);
-        Serial.print(F(", 0x"));
-        Serial.println(txResult, HEX);        
-     
-     } while(true);
-    
-    Serial.print(F("Loop: Going to sleep."));
-    sleepMCU();
+		Serial.print(F("<Setup> Minne:"));
+		Serial.println(freeMemory());
+				
+				
+		////////////////////////////////////////////////////////////////////////////
+		/////Send a SNEP Success PDU the the NFC-device and close the datalink connection. 
+		
+		Serial.println(F("\n----- Transmit SNEP success message"));
+		transmitResult = snep.transmitSuccessAndTerminateSession(txNDEFMessagePtr);
+		if(IS_ERROR(transmitResult)){
+			Serial.print(F("----- SNEP success messsage could not be transmitted due to error: 0x"));
+			Serial.println(transmitResult, HEX);
+			break;
+		}else
+			Serial.println(F("----- SNEP success messsage transmitted\n"));
+
+			if(!strcmp( "TE01200Anna",  (char *) ndefTextPayload))
+			{
+				uint8_t message[12] = "TE01300    ";
+				txNDEFMessagePtr = &txNDEFMessage[MAX_PKT_HEADER_SIZE];
+				rxNDEFMessagePtr = &rxNDEFMessage[0];
+				txLen = ndefmessage.createNDEFShortRecord(message, 11, txNDEFMessagePtr);
+				if(!txLen){ 
+						Serial.println("----- Failed to create NDEF Message.");
+						break;
+				}
+			}
+			else
+			{
+				uint8_t message[12] = "TE01310    ";
+				txNDEFMessagePtr = &txNDEFMessage[MAX_PKT_HEADER_SIZE];
+				rxNDEFMessagePtr = &rxNDEFMessage[0];
+				txLen = ndefmessage.createNDEFShortRecord(message, 11, txNDEFMessagePtr);
+				if(!txLen){ 
+						Serial.println("----- Failed to create NDEF Message.");
+						break;
+				}
+			}
+
+			Serial.println(F("Staring sending procedure"));
+			 
+				///////////////////////////////////////////////////////////////////////////
+				////Establish a LLC datalink connection and send a SNEP message.
+				
+				transmitResult = snep.transmitPutRequest(txNDEFMessagePtr, txLen);
+				if(IS_ERROR(transmitResult)){
+					Serial.print(F("----- The SNEP put request could not be sent due to error: 0x"));
+					Serial.println(transmitResult, HEX);
+					break;
+				}else
+					Serial.println(F("----- Request transmitted\n"));
+					
+				////////////////////////////////////////////////////////////////////////////
+				/////Receive a SNEP Success PDU from the NFC-device and close the session.
+				
+				Serial.println(F("----- Receive response"));
+				receiveResult = snep.receiveSuccessAndTerminateSession(rxNDEFMessagePtr);
+				if(IS_ERROR(receiveResult)){
+					Serial.print(F("----- The SNEP success message could not be received due to error: 0x"));
+					Serial.println(transmitResult, HEX);
+					break;
+				}else
+					Serial.println(F("----- Response received\n"));
+					Serial.println(transmitResult, HEX);
+
+					digitalWrite(_lock, HIGH);
+					delay(5000);
+						
+			 tryAgain = false;
+
+
+	}
+	
+		////////////////////////////////////////////////////////////////////////////////////
+		/////// Determine if key was correct or not
+
+
+		////////////////////////////////////////////////////////////////////////////////////
+		///////Correct key. Initialize new session. Send success code.    
+	
+	
+	
+	////////////////////////////////////////////////////////////////////////////
+	/////Key was incorrect. Initialize new session. Send fail code.  
+	
+	
 }
 
-void sleepMCU()
-{
-    delay(100);  // delay so that debug message can be printed before the MCU goes to sleep
-    
-    // Enable sleep mode
-    sleep_enable();          
-    
-    power_adc_disable();
-    power_spi_disable();
-    power_timer0_disable();
-    power_timer1_disable();
-    power_timer2_disable();
-    power_twi_disable();
-    
-    //Serial.println("Going to Sleep\n");
-    //delay(1000);
-    
-    // Puts the device to sleep.
-    sleep_mode();  
-    Serial.println("Woke up");          
-    
-    // Program continues execution HERE
-    // when an interrupt is recieved.
+////////////////////////////////////////////
+///sleep is used in combination with configurepeerastarget when it is called in the sedning procedure.
 
-    // Disable sleep mode
-    sleep_disable();         
-    
-    power_all_enable();
-}   
-   
+
+ 
+	 
