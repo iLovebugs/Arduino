@@ -60,14 +60,14 @@ public:
    NFCLinkLayer(NFCReader *nfcReader);
    ~NFCLinkLayer();
    
-   uint32_t openLinkToClient(boolean debug = true);
+   uint32_t openLinkToClient();
    uint32_t closeLinkToClient();
       
-   uint32_t openLinkToServer(boolean debug = true);
+   uint32_t openLinkToServer(boolean sleep);
    uint32_t closeLinkToServer();
    
-   uint32_t receiveSNEP(uint8_t *&Data, boolean debug = true);
-   uint32_t transmitSNEP(uint8_t *SNEPMessage, uint32_t len, boolean debug = true);
+   uint32_t receiveSNEP(uint8_t *&Data);
+   uint32_t transmitSNEP(uint8_t *SNEPMessage, uint32_t len);
 private:
    NFCReader *_nfcReader;
    uint8_t DSAP;

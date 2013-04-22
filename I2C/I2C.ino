@@ -134,7 +134,7 @@ void loop(void)
 				///////////////////////////////////////////////////////////////////////////
 				////Establish a LLC datalink connection and send a SNEP message.
 				
-				transmitResult = snep.transmitPutRequest(txNDEFMessagePtr, txLen);
+				transmitResult = snep.transmitPutRequest(txNDEFMessagePtr, txLen, true);
 				if(IS_ERROR(transmitResult)){
 					Serial.print(F("----- The SNEP put request could not be sent due to error: 0x"));
 					Serial.println(transmitResult, HEX);
@@ -156,8 +156,8 @@ void loop(void)
 					Serial.println(transmitResult, HEX);
 			
 			
-				Serial.println(F("----- DELAY 5000\n"));
-				delay(5000);
+				Serial.println(F("----- DELAY 1000\n"));
+				delay(1000);
 				
 				////////////////////////////////////////////////////////////////////////////
 				///// Receive an encrypted message from the NFC-device
@@ -177,7 +177,7 @@ void loop(void)
 				receiveResult = snep.receivePutRequest(rxNDEFMessagePtr);
 			 if(IS_ERROR(receiveResult)){
 					Serial.print(F("----- The SNEP put request could not be received due to error: 0x"));
-					Serial.println(transmitResult, HEX);
+					Serial.println(receiveResult, HEX);
 					break;
 				}else
 					Serial.println(F("----- Request received\n"));
@@ -249,7 +249,7 @@ void loop(void)
 				///////////////////////////////////////////////////////////////////////////
 				////Establish a LLC datalink connection and send a SNEP message.
 				
-				transmitResult = snep.transmitPutRequest(txNDEFMessagePtr, txLen);
+				transmitResult = snep.transmitPutRequest(txNDEFMessagePtr, txLen, false);
 				if(IS_ERROR(transmitResult)){
 					Serial.print(F("----- The SNEP put request could not be sent due to error: 0x"));
 					Serial.println(transmitResult, HEX);
@@ -267,10 +267,10 @@ void loop(void)
 					Serial.println(transmitResult, HEX);
 					break;
 				}else
-					Serial.println(F("----- Response received\n"));
-					Serial.println(transmitResult, HEX);
+					Serial.print(F("----- Response received: "));
 
 					digitalWrite(_lock, HIGH);
+					Serial.println(F("----- Door is now open!"));
 					delay(5000);
 						
 			 tryAgain = false;

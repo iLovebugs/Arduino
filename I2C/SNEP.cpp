@@ -12,12 +12,12 @@ SNEP::~SNEP(){
 uint32_t SNEP::receivePutRequest(uint8_t *&data){
 
   //Act as server, acts as the SNEP server process present on NFC-enabled devices.
-  uint32_t result = _linkLayer->openLinkToClient(true);
+  uint32_t result = _linkLayer->openLinkToClient();
 
   if(RESULT_OK(result)){
     Serial.println(F("SNEP>receiveRequst: CONNECTED."));
 
-    result = _linkLayer->receiveSNEP(data,true);
+    result = _linkLayer->receiveSNEP(data);
 
     if(RESULT_OK(result)){
 
@@ -62,7 +62,7 @@ uint32_t SNEP::transmitSuccessAndTerminateSession(uint8_t *buffer){
   snepResponse->nothing[2] = 0;
   snepResponse->length = 0;                  
   
-  result = _linkLayer->transmitSNEP((uint8_t *)snepResponse, SNEP_PDU_HEADER_LEN, true);    
+  result = _linkLayer->transmitSNEP((uint8_t *)snepResponse, SNEP_PDU_HEADER_LEN);    
   if(RESULT_OK(result)){
     result = _linkLayer->closeLinkToClient(); //Recieve a DISC pdu, Client tears down the connection. TODO: ADD TEST IF DISC?
   }
@@ -75,12 +75,12 @@ uint32_t SNEP::transmitSuccessAndTerminateSession(uint8_t *buffer){
 //            request[0] is the the SNEP request type and request[1] is the acceptable length if SNEP request type is Get
 // Returns the length of the received NDEF message
 //why *& as argument?
-uint32_t SNEP::transmitPutRequest(uint8_t *NDEFMessage, uint8_t length){
+uint32_t SNEP::transmitPutRequest(uint8_t *NDEFMessage, uint8_t length, boolean sleep){
 
   uint32_t result;
 
   //Opening link to server.  
-  result = _linkLayer->openLinkToServer(true);
+  result = _linkLayer->openLinkToServer(sleep);
 
   //if data-link was succesfully established continue, else abort.
   if(RESULT_OK(result)){
@@ -92,7 +92,7 @@ uint32_t SNEP::transmitPutRequest(uint8_t *NDEFMessage, uint8_t length){
     snepRequest -> length = length;
 
     //caller must check the result
-    result = _linkLayer -> transmitSNEP((uint8_t *)snepRequest, length + SNEP_PDU_HEADER_LEN, true);
+    result = _linkLayer -> transmitSNEP((uint8_t *)snepRequest, length + SNEP_PDU_HEADER_LEN);
 
   } 
   return result;  
@@ -104,7 +104,7 @@ uint32_t SNEP::transmitPutRequest(uint8_t *NDEFMessage, uint8_t length){
 // Returns the length of the received NDEF message
 uint32_t SNEP::receiveSuccessAndTerminateSession(uint8_t *&data){
 
-  uint32_t result = _linkLayer->receiveSNEP(data,true);
+  uint32_t result = _linkLayer->receiveSNEP(data);
 
   if(RESULT_OK(result)){
 
@@ -119,19 +119,5 @@ uint32_t SNEP::receiveSuccessAndTerminateSession(uint8_t *&data){
     }
       result = _linkLayer -> closeLinkToServer();   
   } 
-
   return result;
-
 }
-/*
-SNEP_PDU::SNEP_PDU{
- parameters[0] = 0;
- parameters[1] = 0;
- parameters[2] = 0;
- parameters[3] = 0;
- parameters[4] = 0;
- parameters[5] = 0;
- }
- 
- uint8_t SNEP_PDU:: set*/
-

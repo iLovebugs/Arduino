@@ -9,6 +9,7 @@
 #include <avr/power.h>
 #include <avr/sleep.h>
 
+
 //#define PN532DEBUG 1
 //#define PN532PRINTRESPONSE 0
 //#define getFirmwareVersionDEBUG 1
@@ -202,8 +203,8 @@ uint32_t PN532::configurePeerAsTarget(boolean sleep)
     (byte) 0x46, (byte) 0x66, (byte) 0x6D, //LLCP WORD 	       			
     (byte) 0x01, (byte) 0x01, (byte) 0x11, //VERSION NUMBER
     (byte) 0x03, (byte) 0x02, (byte) 0x00, (byte) 0x01, //WELL KNOWN SERVICE LIST
-    (byte) 0x04, (byte) 0x01, (byte) 0xFF, //LINK TIMEOUT
-    (byte) 0x00                        }; // LEN ?
+    (byte) 0x04, (byte) 0x01, (byte) 0x32, //LINK TIMEOUT
+    (byte) 0x00}; // LEN ?
 
 
   for(uint8_t iter = 0;iter < pdu_len;iter++)
@@ -266,10 +267,9 @@ uint32_t PN532::targetRxData(uint8_t *DataIn)
     if(response->data[0] == 0x29)
       Serial.println(F("targetRxData: TARGET_RELEASED_ERROR"));
     else{
-      Serial.println(F("targetRxData: ERROR: "));
-      Serial.print(response->data[0], HEX);
+      Serial.print(F("targetRxData: ERROR: "));
+      Serial.println(response->data[0], HEX);
     }
-      Serial.println((GEN_ERROR | 0x29), HEX);
       
     return (GEN_ERROR | response->data[0]);
   }
@@ -347,7 +347,8 @@ boolean debug)
   if(debug)
     Serial.println(F("sendCommandCheckAck: start"));
 
-#ifdef PN532DEBUG  
+#ifdef PN532DEBUG
+  Serial.println(F("sendCommandCheckAck: start"));  
   Serial.print(F("sendCommandCheckAck: Minne:"));
   Serial.println(freeMemory());
 #endif 
@@ -515,7 +516,13 @@ uint32_t PN532::fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *response)
 
 
   //Fetch the data
-  fetchData((uint8_t *)response, 1000);
+  retVal = fetchData((uint8_t *)response, 3000);
+  if(IS_ERROR(retVal)){
+    #ifdef PN532DEBUG
+      Serial.println(F("FETCH_COMMAND_RX_TIMEOUT_ERROR"));
+    #endif
+    return retVal;
+  }
 
 
   retVal = response->verifyResponse(cmdCode) ? RESULT_SUCCESS : INVALID_RESPONSE;      
@@ -529,8 +536,6 @@ uint32_t PN532::fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *response)
     // Add data fields to checksum
     // 2 is removed since direction (TFI) and responsCode is included in LEN
     //Never run for frames with len < 3, e.g response to a SAMconfig()
-    Serial.print(F("fetchResponse: Len: "));
-    Serial.println(response -> len ,HEX);
     uint8_t i = 0;
     for ( i; i < response -> len -2 ; i++){
       calc_checksum +=  response->data[i];
@@ -571,7 +576,7 @@ uint32_t PN532::fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *response)
   return retVal;
 }
 
-void PN532::fetchData(uint8_t* buff, uint16_t timeout) 
+uint32_t PN532::fetchData(uint8_t* buff, uint16_t timeout) 
 {    
 #ifdef PN532DEBUG     
   Serial.println(F("fetchData: start"));
@@ -582,6 +587,9 @@ void PN532::fetchData(uint8_t* buff, uint16_t timeout)
   while(checkDataAvailable() == PN532_I2C_NO_DATA){        
     //    Serial.println(F("<fetchData>: Nothing to fetch, delay 250ms"));
     delay(250);
+    time = time + 250;
+    if(time >= timeout)
+      return FETCH_COMMAND_RX_TIMEOUT_ERROR;
   }
 
   //Fetches a predefined Chunk of data.
@@ -619,7 +627,9 @@ void PN532::fetchData(uint8_t* buff, uint16_t timeout)
   Serial.println();
   Serial.println(F("fetchData: data fetched"));
   Serial.println(F("fetchData: END"));
-#endif      
+#endif
+
+return RESULT_SUCCESS;      
 }
 
 /************** low level functions ***********/

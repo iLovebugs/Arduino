@@ -131,7 +131,7 @@ public:
     uint32_t sendCommandCheckAck(uint8_t *cmd, 
                                  uint8_t cmdlen, 
                                  uint16_t timeout = 1000,
-                                 boolean debug = true);
+                                 boolean debug = false);
                                  
 uint32_t getGeneralStatus();                               
 
@@ -150,7 +150,7 @@ private:
     boolean fetchCheckAck(uint16_t timeout = 1000);
     uint8_t checkDataAvailable(void);
     uint32_t fetchResponse(uint8_t cmdCode, PN532_CMD_RESPONSE *reponse);
-    void fetchData(uint8_t* buff, uint16_t timeout = 1000); //debugg=?
+    uint32_t fetchData(uint8_t* buff, uint16_t timeout = 3000);
     void sendFrame(uint8_t* cmd, uint8_t cmdlen);
     void wiresend(uint8_t c);
     uint8_t wirerecv(void);

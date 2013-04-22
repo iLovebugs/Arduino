@@ -28,7 +28,7 @@ class SNEP{
     uint32_t transmitSuccessAndTerminateSession(uint8_t *buffer);
     
     // When a link to a server is established
-    uint32_t transmitPutRequest(uint8_t *NDEFMessage, uint8_t len);
+    uint32_t transmitPutRequest(uint8_t *NDEFMessage, uint8_t len, boolean sleep);
     uint32_t receiveSuccessAndTerminateSession(uint8_t *&NDEFMessage);
     
   private:
