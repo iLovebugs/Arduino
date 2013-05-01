@@ -55,7 +55,7 @@ public:
 
    
    virtual uint32_t targetRxData(uint8_t *response) = 0;
-   virtual uint32_t targetTxData(uint8_t *DataOut, uint32_t dataSize) = 0;                      
+   virtual uint32_t targetTxData(uint8_t *&DataOut, uint32_t dataSize) = 0;                      
                                                                       
    virtual uint32_t sendCommandCheckAck(uint8_t *cmd, 
                               uint8_t cmdlen,                               

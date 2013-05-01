@@ -22,16 +22,14 @@
 
 #define SNEP_CLIENT                  0x04
 
-#define CONNECT_SERVER_PDU_LEN       0x02
+#define CONNECT_SERVER_PDU_LEN       0x06
 #define SYMM_PDU_LEN                 0x02
+#define CCPDU_PDU_LEN                0x02
+#define DMPDU_PDU_LEN                0x03
 
 
 struct PARAMETER_DESCR {
-   union {
-      uint8_t type;
-      uint8_t sequence;
-   };
-   uint8_t length;
+   uint8_t sequence;
    uint8_t data[0];
 };
 
@@ -67,27 +65,28 @@ public:
    uint32_t closeLinkToServer();
    
    uint32_t receiveSNEP(uint8_t *&Data);
-   uint32_t transmitSNEP(uint8_t *SNEPMessage, uint32_t len);
+   uint32_t transmitSNEP(uint8_t *&SNEPMessage, uint32_t len);
 private:
    NFCReader *_nfcReader;
    uint8_t DSAP;
    uint8_t SSAP;
    uint8_t seq;
    
-   void buildCCPDU(PDU *targetPayload);
-   void buildConnectPDU(PDU *targetPayload);
-   void buildSYMMPDU(PDU *targetPayload);
-   void buildDISCPDU(PDU *targetPayload);
-   void buildRRPDU(PDU *targetPayload);
-   void buildDMPDU(PDU *targetPayload);
+   void buildCCPDU();
+   void buildConnectPDU();
+   void buildSYMMPDU();
+   void buildDISCPDU();
+   void buildRRPDU();
+   void buildDMPDU();
    void increaceSendWindow();
    void increaceReceiveWindow();
+   boolean isDICK();
    
    boolean isCCPDU(PDU *targetPayload);
    boolean isConnectPDU(PDU *targetPayload);
    boolean isSYMMPDU(PDU *targetPayload);
-   boolean isDISCPDU(PDU *targetPayload);
-   boolean isRRPDU(PDU *targetPayload);
+   boolean isDISCPDU();
+   boolean isRRPDU();
    boolean isDMPDU(PDU *targetPayload);
 };
 

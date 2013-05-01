@@ -3,7 +3,7 @@
 NDEFMessage::NDEFMessage(){
 }
 
-uint32_t NDEFMessage::createNDEFShortRecord(uint8_t *message, uint8_t payloadLen, uint8_t *&NDEFMessage)
+uint32_t NDEFMessage::createNDEFShortRecord(uint8_t *&NDEFMessage ,uint8_t payloadLen)
 {
    //Serial.print("Message: ");
    //Serial.println((char *)message);
@@ -13,7 +13,6 @@ uint32_t NDEFMessage::createNDEFShortRecord(uint8_t *message, uint8_t payloadLen
    NDEFMessageHdr[1] =  SHORT_RECORD_TYPE_LEN;
    NDEFMessageHdr[2] =  payloadLen;
    memcpy(&NDEFMessageHdr[3], TYPE_STR, SHORT_RECORD_TYPE_LEN);
-   memcpy(NDEFMessage, message, payloadLen);
    //Serial.print("NDEF Message: ");
    //Serial.println((char *)NDEFMessage);   
    NDEFMessage = NDEFMessageHdr;

@@ -43,6 +43,6 @@ class NDEFMessage{
     //~NDEFMessage();
     uint32_t retrieveTextPayloadFromShortRecord(uint8_t *NDEFMessage, uint8_t type, uint8_t *&payload, boolean isIDLenPresent); 
     uint32_t retrieveTextPayload(uint8_t *NDEFMessage, uint8_t *&payload, boolean &lastTextPayload);
-    uint32_t createNDEFShortRecord(uint8_t *message, uint8_t payloadLen, uint8_t *&NDEFMessage); 
+    uint32_t createNDEFShortRecord(uint8_t *&NDEFMessage, uint8_t payloadLen); 
 };
 

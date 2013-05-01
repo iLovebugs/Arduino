@@ -135,7 +135,7 @@ public:
                                  
 uint32_t getGeneralStatus();                               
 
-    uint32_t targetTxData(uint8_t *DataOut, 
+    uint32_t targetTxData(uint8_t *&DataOut, 
                           uint32_t dataSize);
                                                          
     uint32_t targetRxData(uint8_t *response);  

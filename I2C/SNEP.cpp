@@ -50,9 +50,11 @@ uint32_t SNEP::receivePutRequest(uint8_t *&data){
 // Transmits a SNEP success PDU to the client. A link must have been established before this function is called
 // Arguments: buffer is the buffer used to build the message to transmit.
 // Returns the length of the received NDEF message
-uint32_t SNEP::transmitSuccessAndTerminateSession(uint8_t *buffer){
-  SNEP_PDU *snepResponse = (SNEP_PDU *) ALLOCATE_HEADER_SPACE(buffer, SNEP_PDU_HEADER_LEN);
+uint32_t SNEP::transmitSuccessAndTerminateSession(uint8_t *&txNDEFMessagePtr)
+{
+  SNEP_PDU *snepResponse = (SNEP_PDU *) ALLOCATE_HEADER_SPACE(txNDEFMessagePtr, SNEP_PDU_HEADER_LEN);
   uint32_t result;
+  uint8_t * responsPtr = (uint8_t *)snepResponse;
   
   // Incapsulate the NDEF message(which does not exist) into a SNEP response message
   snepResponse->version = SNEP_SUPPORTED_VERSION;
@@ -62,9 +64,9 @@ uint32_t SNEP::transmitSuccessAndTerminateSession(uint8_t *buffer){
   snepResponse->nothing[2] = 0;
   snepResponse->length = 0;                  
   
-  result = _linkLayer->transmitSNEP((uint8_t *)snepResponse, SNEP_PDU_HEADER_LEN);    
+  result = _linkLayer->transmitSNEP(responsPtr, SNEP_PDU_HEADER_LEN);    
   if(RESULT_OK(result)){
-    result = _linkLayer->closeLinkToClient(); //Recieve a DISC pdu, Client tears down the connection. TODO: ADD TEST IF DISC?
+    result = _linkLayer->closeLinkToClient(); //Recieve a DISC pdu, Client tears down the connection. 
   }
   return result;  
 }
@@ -75,7 +77,7 @@ uint32_t SNEP::transmitSuccessAndTerminateSession(uint8_t *buffer){
 //            request[0] is the the SNEP request type and request[1] is the acceptable length if SNEP request type is Get
 // Returns the length of the received NDEF message
 //why *& as argument?
-uint32_t SNEP::transmitPutRequest(uint8_t *NDEFMessage, uint8_t length, boolean sleep){
+uint32_t SNEP::transmitPutRequest(uint8_t *&NDEFMessage, uint8_t length, boolean sleep){
 
   uint32_t result;
 
@@ -87,12 +89,13 @@ uint32_t SNEP::transmitPutRequest(uint8_t *NDEFMessage, uint8_t length, boolean 
 
     //Build SNEP frame   
     SNEP_PDU *snepRequest = (SNEP_PDU *) ALLOCATE_HEADER_SPACE(NDEFMessage, SNEP_PDU_HEADER_LEN);          
+    uint8_t * requestPtr = (uint8_t *)snepRequest;
     snepRequest -> version =  SNEP_SUPPORTED_VERSION;
     snepRequest -> type = SNEP_PUT_REQUEST;
     snepRequest -> length = length;
 
     //caller must check the result
-    result = _linkLayer -> transmitSNEP((uint8_t *)snepRequest, length + SNEP_PDU_HEADER_LEN);
+    result = _linkLayer -> transmitSNEP(requestPtr, length + SNEP_PDU_HEADER_LEN);
 
   } 
   return result;  

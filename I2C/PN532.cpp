@@ -10,10 +10,10 @@
 #include <avr/sleep.h>
 
 
-//#define PN532DEBUG 1
-//#define PN532PRINTRESPONSE 0
-//#define getFirmwareVersionDEBUG 1
-//#define sendFrameDEBUG 1
+#define PN532DEBUG
+#define PN532PRINTRESPONSE
+//#define getFirmwareVersionDEBUG
+#define sendFrameDEBUG
 //#define fetchCheckAckDEBUG
 //#define fetchdataDEBUG
 
@@ -26,7 +26,7 @@ uint8_t pn532response_firmwarevers[] = {
 
 #define COMMAND_RESPONSE_SIZE 3 
 #define TS_GET_DATA_IN_MAX_SIZE  262 + 3
-#define CHUNK_OF_DATA 64
+#define CHUNK_OF_DATA 160
 
 //Buffern som allt l�ggs p�, rymmer ett standard PN532 commando
 uint8_t pn532_packetbuffer[TS_GET_DATA_IN_MAX_SIZE];
@@ -148,64 +148,32 @@ uint32_t PN532::configurePeerAsTarget(boolean sleep)
 #ifdef PN532DEBUG
   Serial.println(F("configurePeerAsTarget: start"));
 #endif
-  //  Serial.println(F("<configurePeerAsTarget>"));
-  //  static const uint8_t npp_client[44] = { 
-  //    PN532_TGINITASTARGET,
-  //    0x00, 
-  //    0x00, 0x00, //SENS_RES
-  //    0x00, 0x00, 0x00, //NFCID1
-  //    0x00, //SEL_RES
-  //
-  //    0x01, 0xFE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // POL_RES
-  //    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  //
-  //    0x00, 0x00,
-  //
-  //    0x01, 0xFE, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //NFCID3t: Change this to desired value
-  //
-  //    0x06, 0x46, 0x66, 0x6D, 0x01, 0x01, 0x10, 0x00
-  //  };
-  //  
-  //  static const uint8_t npp_server[44] = { 
-  //    PN532_TGINITASTARGET,
-  //    0x01,
-  //    0x00, 0x00, //SENS_RES
-  //    0x00, 0x00, 0x00, //NFCID1
-  //    0x40, //SEL_RES
-  //
-  //    0x01, 0xFE, 0x0F, 0xBB, 0xBA, 0xA6, 0xC9, 0x89, // POL_RES
-  //    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  //
-  //    0xFF, 0xFF,
-  //
-  //    0x01, 0xFE, 0x0F, 0xBB, 0xBA, 0xA6, 0xC9, 0x89, 0x00, 0x00, //NFCID3t: Change this to desired value
-  //
-  //    0x06, 0x46, 0x66, 0x6D, 0x01, 0x01, 0x10, 0x00
-  //    
-  //  }; 
+
   int pdu_len = 51;
   static const uint8_t npp_client[51] = {
     PN532_TGINITASTARGET,
-    (byte) 0x00,   //MODE
+    (byte) 0x02,   //MODE
     //MIFARE PARAMS	
-    (byte) 0x08, (byte) 0x00,  // SENS_RES
-    (byte) 0x12, (byte) 0x34, (byte) 0x56, // NFCID1
+    (byte) 0x00, (byte) 0x00,  // SENS_RES
+    (byte) 0x00, (byte) 0x00, (byte) 0x00, // NFCID1
     (byte) 0x40, // SEL_RES
     //FELICA PARAMS
-    (byte) 0x01, (byte) 0xfe, (byte) 0xa2, (byte) 0xa3, (byte) 0xa4, (byte) 0xa5, // POL_RES
-    (byte) 0xa6, (byte) 0xa7, (byte) 0xc0, (byte) 0xc1, (byte) 0xc2, (byte) 0xc3, 
-    (byte) 0xc4, (byte) 0xc5, (byte) 0xc6, (byte) 0xc7,
-    (byte) 0xff, (byte) 0xff,
-    // NFCID3
+    (byte) 0x01, (byte) 0xfe, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, // POL_RES
+    (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, 
+    (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
+    (byte) 0x00, (byte) 0x00,
+    // NFCID3 
     (byte) 0xaa, (byte) 0x99, (byte) 0x88, (byte) 0x77, (byte) 0x66, 
     (byte) 0x55, (byte) 0x44, (byte) 0x33, (byte) 0x22, (byte) 0x11, 	
     (byte) 0x0d, //LEN Gt
     (byte) 0x46, (byte) 0x66, (byte) 0x6D, //LLCP WORD 	       			
     (byte) 0x01, (byte) 0x01, (byte) 0x11, //VERSION NUMBER
     (byte) 0x03, (byte) 0x02, (byte) 0x00, (byte) 0x01, //WELL KNOWN SERVICE LIST
-    (byte) 0x04, (byte) 0x01, (byte) 0x32, //LINK TIMEOUT
+    (byte) 0x04, (byte) 0x01, (byte) 0xFF, //LINK TIMEOUT                                        // now testing with 96:: 32 is working on HTC
     (byte) 0x00}; // LEN ?
 
+//Without prints LTO : 0x32
+//With prints LTO :FF
 
   for(uint8_t iter = 0;iter < pdu_len;iter++)
   {
@@ -278,7 +246,7 @@ uint32_t PN532::targetRxData(uint8_t *DataIn)
   return ret_len;
 }
 
-uint32_t PN532::targetTxData(uint8_t *DataOut, uint32_t dataSize)
+uint32_t PN532::targetTxData(uint8_t *&DataOut, uint32_t dataSize)
 {
 #ifdef PN532DEBUG
   Serial.println(F("targetTxData: start"));
@@ -389,10 +357,6 @@ void PN532::sendFrame(uint8_t* cmd, uint8_t cmdlen)
   Wire.write(PN532_STARTCODE1);
   Wire.write(PN532_STARTCODE2);
 
-#ifdef sendFrameDEBUG
-  Serial.print(F("sendFrame: Minne: "));
-  Serial.println(freeMemory());
-#endif
   Wire.write(cmdlen);                   //LEN
   uint8_t cmdlen_1 = ~cmdlen + 1;       //calculating the two's complement of cmdlen is used as the LCS
   Wire.write(cmdlen_1);		        //LCS        
