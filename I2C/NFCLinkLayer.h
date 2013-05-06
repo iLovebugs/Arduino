@@ -24,7 +24,7 @@
 
 #define CONNECT_SERVER_PDU_LEN       0x06
 #define SYMM_PDU_LEN                 0x02
-#define CCPDU_PDU_LEN                0x02
+#define CCPDU_PDU_LEN                0x06//0x02
 #define DMPDU_PDU_LEN                0x03
 
 

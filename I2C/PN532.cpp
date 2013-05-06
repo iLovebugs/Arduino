@@ -5,15 +5,16 @@
 // by Seeed Technology Inc (www.seeedstudio.com)
 
 #include "PN532.h"
+#include "Debug.h"
 #include <Wire.h>
 #include <avr/power.h>
 #include <avr/sleep.h>
 
 
-#define PN532DEBUG
-#define PN532PRINTRESPONSE
+//#define PN532DEBUG
+//#define PN532PRINTRESPONSE
 //#define getFirmwareVersionDEBUG
-#define sendFrameDEBUG
+//#define sendFrameDEBUG
 //#define fetchCheckAckDEBUG
 //#define fetchdataDEBUG
 
@@ -26,7 +27,7 @@ uint8_t pn532response_firmwarevers[] = {
 
 #define COMMAND_RESPONSE_SIZE 3 
 #define TS_GET_DATA_IN_MAX_SIZE  262 + 3
-#define CHUNK_OF_DATA 160
+#define CHUNK_OF_DATA 200//160
 
 //Buffern som allt l�ggs p�, rymmer ett standard PN532 commando
 uint8_t pn532_packetbuffer[TS_GET_DATA_IN_MAX_SIZE];
@@ -169,7 +170,7 @@ uint32_t PN532::configurePeerAsTarget(boolean sleep)
     (byte) 0x46, (byte) 0x66, (byte) 0x6D, //LLCP WORD 	       			
     (byte) 0x01, (byte) 0x01, (byte) 0x11, //VERSION NUMBER
     (byte) 0x03, (byte) 0x02, (byte) 0x00, (byte) 0x01, //WELL KNOWN SERVICE LIST
-    (byte) 0x04, (byte) 0x01, (byte) 0xFF, //LINK TIMEOUT                                        // now testing with 96:: 32 is working on HTC
+    (byte) 0x04, (byte) 0x01, (byte) 0x50, //LINK TIMEOUT  
     (byte) 0x00}; // LEN ?
 
 //Without prints LTO : 0x32
@@ -689,15 +690,18 @@ void PN532::clearBuffer()
 
 void wakeUpFunction()
 {
-    sleep_disable();  
-    Serial.println(F("----- Arduino woke up!"));       
+    sleep_disable();
+    #ifdef PN532DEBUG
+    Serial.println(F("Arduino woke up!"));
+    #endif       
     detachInterrupt(0);
 }
 
 void sleepTight()
 {
-
-    Serial.println("Arduino going to sleep");  
+    #ifdef PN532DEBUG
+    Serial.println("Arduino going to sleep");
+    #endif  
     delay(100);  // delay so that debug message can be printed before the MCU goes to sleep
         
     // Enable sleep mode

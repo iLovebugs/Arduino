@@ -1,4 +1,5 @@
 #include "SNEP.h"
+#include "Debug.h"
 
 SNEP::SNEP(NFCLinkLayer *linkLayer) :
 _linkLayer(linkLayer){
@@ -15,27 +16,35 @@ uint32_t SNEP::receivePutRequest(uint8_t *&data){
   uint32_t result = _linkLayer->openLinkToClient();
 
   if(RESULT_OK(result)){
+    #ifdef SNEPdebug
     Serial.println(F("SNEP>receiveRequst: CONNECTED."));
+    #endif
 
     result = _linkLayer->receiveSNEP(data);
 
     if(RESULT_OK(result)){
 
       if(data[0] != SNEP_SUPPORTED_VERSION){
+        #ifdef SNEPdebug
         Serial.print(F("SNEP>receiveRequst: Recieved an SNEP message of an unsupported version: "));
         Serial.println(data[0]);
+        #endif
         return SNEP_UNSUPPORTED_VERSION;
       }     
 
       // Manage the request that was sent as argument
 
       if(data[1] == SNEP_PUT_REQUEST){
-        data = &data[6]; //Discard SNEP header              
+        data = &data[6]; //Discard SNEP header
+        #ifdef SNEPdebug              
         Serial.println(F("SNEP>receiveRequst: Receiving a SNEP put request"));
         Serial.print(F("SNEP>receiveRequst: Length: "));
+        #endif
         uint32_t length = data[2];
+        #ifdef SNEPdebug
         Serial.print(F("0x"));
         Serial.println(length, HEX);
+        #endif
         return data[2]; //returing length of NDEF message
 
       }
@@ -112,8 +121,10 @@ uint32_t SNEP::receiveSuccessAndTerminateSession(uint8_t *&data){
   if(RESULT_OK(result)){
 
     if(data[0] != SNEP_SUPPORTED_VERSION){
+      #ifdef SNEPdebug
       Serial.print(F("SNEP>receiveData: Recieved an SNEP message of an unsupported version: "));
       Serial.println(data[0]);
+      #endif
       return SNEP_UNSUPPORTED_VERSION;     
     }
 

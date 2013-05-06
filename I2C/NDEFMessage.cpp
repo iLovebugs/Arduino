@@ -1,4 +1,5 @@
 #include "NDEFMessage.h"
+#include "Debug.h"
 
 NDEFMessage::NDEFMessage(){
 }
@@ -24,10 +25,12 @@ uint32_t NDEFMessage::createNDEFShortRecord(uint8_t *&NDEFMessage ,uint8_t paylo
 //Will call methods that extracts information from short record or normal records. Only the short record method is implemented.
 uint32_t NDEFMessage::retrieveTextPayload(uint8_t *NDEFMessage, uint8_t *&payload, boolean &lastTextPayload)
 {
+   #ifdef NDEFMessagedebug
    Serial.print(F("NDEFMessage::retrieveTextPayload:"));
    Serial.println(NDEFMessage[0], HEX);
    Serial.print(F("NDEFMessage::retrieveTextPayload:"));
    Serial.println(NDEFMessage[1], HEX);
+   #endif
    uint8_t type = (NDEFMessage[0] & NDEF_MESSAGE_TYPENAME_FORMAT); //applying a mask 0000 0111 to extract the TNF field.
    if (type != TYPE_FORMAT_NFC_FORUM_TYPE && type != TYPE_FORMAT_MEDIA_TYPE) //If result is not 0000 0010 = mediatype we will not process the NDEF-message
    {
@@ -88,14 +91,18 @@ uint32_t NDEFMessage::retrieveTextPayloadFromShortRecord(uint8_t *NDEFMessage, u
                  for (uint8_t i = 0; i < (typeLen - 1); ++i) {
                     if (NDEFMessage[idx++] != 0x00)
                     {
+                       #ifdef NDEFMessagedebug
                        Serial.println("NDEFMessage::retrieveTextPayloadFromShortRecord: Unhandled NDEF Message Type.");
+                       #endif
                        return 0;
                     }
                  }
                  
                  if ( NDEFMessage[idx++] != NFC_FORUM_TEXT_TYPE ) 
                  {
+                     #ifdef NDEFMessagedebug
                      Serial.println("NDEFMessage::retrieveTextPayloadFromShortRecord: Unhandled NDEF Message Type.");
+                     #endif
                      return 0;
                  }
              }
@@ -105,8 +112,10 @@ uint32_t NDEFMessage::retrieveTextPayloadFromShortRecord(uint8_t *NDEFMessage, u
                  if (typeLen != 0xA || strncmp(typeStr, "text/plain", typeLen) != 0) 
                  {
                     NDEFMessage[typeLen + idx] = NULL;
+                    #ifdef NDEFMessagedebug
                     Serial.print("NDEFMessage::retrieveTextPayloadFromShortRecord: Unknown Type: ");
                     Serial.println(NDEFMessage[idx]);
+                    #endif
                     return 0;
                  }
                  idx += typeLen; //Confirmed the mediatype to be text/plain, advance idx to the actuall payload.
